@@ -22,32 +22,47 @@ Sempre que o usuário solicitar uma nova **funcionalidade (feature)**, **épico*
 2. Interaja com o usuário ou o Stitch MCP sugerindo melhorias de usabilidade e fluxos.
 3. Obtenha os artefatos visuais e de código-fonte necessários.
 
-## Passo 3: O Engenheiro de Frontend (Componentização)
+## Passo 3: O Squad de Desenvolvimento em Ação
 
-**👉 Vista as skills: `stitch_to_code_architect` e `high_end_ui_components`**
+Nesta etapa o "Squad Principal" (Backend, Frontend, DBA e QA) entra em ação. Vista estes chapéus conforme a necessidade arquitetônica:
 
-1. Refatore o código gerado no Passo 2 para React/Next.js.
-2. Garanta separação de lógica e UI.
-3. Aplique padrões Premium de interface (animações suaves, *glassmorphism*, skeleton loaders).
+### 3.1: O Database Administrator (DBA)
+
+**👉 Vista a skill: `dba_specialist`**
+
+1. Com base no modelo de dados aprovado no Passo 1, execute `supabase migration new`.
+2. Garanta de forma cega as regras de RLS (Row Level Security) e chaves estrangeiras (`agency_id`).
+
+### 3.2: O Backend Developer
+
+**👉 Vista a skill: `backend_developer`**
+
+1. Programe os *Server Actions* (Next.js) isolando a lógica de negócio do front-end.
+2. Trate exceções e prepare as rotinas de comunicação de rede (Supabase Fetch/Storage).
+
+### 3.3: O Frontend Developer
+
+**👉 Vista as skills: `frontend_developer`, `stitch_to_code_architect` e `high_end_ui_components`**
+
+1. Refatore o código gerado no Passo 2 para React/Next.js consumindo as Actions do Passo 3.2.
+2. Aplique padrões Premium de interface (animações suaves, *glassmorphism*, skeleton loaders, states do Shadcn UI).
+
+### 3.4: O QA Automation Engineer (Validação)
+
+**👉 Vista a skill: `qa_automation`**
+
+1. Teste a *User Story* como usuário final. A UI está fluida? Os Toasts aparecem?
+2. Em caso de gaps de usabilidade sistêmica ou *performance*, lance como Bugs Fixes na Sprint ou 'Débito Técnico' no Jira.
 
 ## Passo 4: O Especialista em Regra de Negócio SaaS
 
 **👉 Vista as skills relevantes: `saas_tenant_isolation`, `stripe_billing_and_trial`, `onboarding_flow`**
 
-1. Incorpore o `agency_id` em todos os inserts/selects.
-2. Garanta que o fluxo respeite a assinatura do cliente (Trial ou Pago).
-3. Adicione RLS (Row Level Security) obrigatoriamente.
+1. Revise se o Squad vazou `agency_id` ou violou lógica de assinatura.
 
-## Passo 5: O Engenheiro de Plataforma (Revisão Final)
-
-**👉 Vista a skill: `api_first_mobile_ready`**
-
-1. Valide se a API (ou a forma como o Supabase é chamado via Hooks) está perfeitamente separada e pronta para ser consumida futuramente por um App React Native/Flutter.
-2. Garanta tipagem estrita no TypeScript. No errors *any*.
-
-## Passo 6: Atualização de Status no Jira (Obrigatório)
+## Passo 5: Atualização de Status no Jira (Obrigatório)
 
 **👉 Sincronização Contínua de Tarefas**
 
-1. Quando o código de uma História de Usuário começar a ser escrito (no Passo 3 ou 4), rode o comando no terminal para atualizar o status: `node scripts/jira.js transition "CHAVE-DA-ISSUE" "En curso"`.
-2. Após a conclusão total da feature (Passo 5 finalizado e validado), mova a tarefa para Finalizado no Jira: `node scripts/jira.js transition "CHAVE-DA-ISSUE" "Finalizado"`.
+1. Quando o código de uma História começar a ser escrito (Passo 3), rode o comando no terminal: `node scripts/jira.js transition "CHAVE-DA-ISSUE" "Em curso"`.
+2. Após o QA (Passo 3.4 e 4) dar o aceite, mova para: `node scripts/jira.js transition "CHAVE-DA-ISSUE" "Finalizado"`.
