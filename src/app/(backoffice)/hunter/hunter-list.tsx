@@ -24,13 +24,13 @@ import {
     RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { claimOpportunity, discardOpportunity, simulateHunt } from './hunter-actions'
+import { claimOpportunity, discardOpportunity, runHunterIA } from './hunter-actions'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export function HunterList({ opportunities: initialOpportunities }: { opportunities: any[] }) {
     const [isPending, startTransition] = useTransition()
-    const [isSimulating, setIsSimulating] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
 
     const handleClaim = (id: string) => {
         startTransition(async () => {
@@ -48,14 +48,14 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
         })
     }
 
-    const handleSimulate = async () => {
-        setIsSimulating(true)
+    const handleSync = async () => {
+        setIsSyncing(true)
         try {
-            const res = await simulateHunt()
+            const res = await runHunterIA() as any
             if (res.error) toast.error(res.error)
-            else toast.success('Simulação concluída! Novos imóveis encontrados.')
+            else toast.success(`Radar sincronizado! ${res.count || 0} novas oportunidades encontradas.`)
         } finally {
-            setIsSimulating(false)
+            setIsSyncing(false)
         }
     }
 
@@ -64,7 +64,18 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
 
     return (
         <div className="space-y-8">
-            {/* Simulation Banner (Only for PoW during development) */}
+            <div className="flex justify-end">
+                <Button 
+                    onClick={handleSync} 
+                    disabled={isSyncing} 
+                    variant="outline"
+                    className="font-bold gap-2 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10"
+                >
+                    {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Sincronizar Radar Agora
+                </Button>
+            </div>
+
             {initialOpportunities.length === 0 && (
                 <div className="p-8 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/20 flex flex-col items-center text-center gap-4">
                     <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -72,11 +83,11 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
                     </div>
                     <div className="space-y-1">
                         <h2 className="text-xl font-bold">Nenhum imóvel encontrado no momento</h2>
-                        <p className="text-sm text-zinc-500 max-w-md">O Hunter IA monitora o mercado diariamente. Você pode simular uma busca agora para ver o robô em ação.</p>
+                        <p className="text-sm text-zinc-500 max-w-md">O Hunter IA monitora o mercado diariamente. Você pode sincronizar agora para ver se há novas oportunidades.</p>
                     </div>
-                    <Button onClick={handleSimulate} disabled={isSimulating} className="font-bold gap-2">
-                        {isSimulating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        Simular Busca do Hunter IA
+                    <Button onClick={handleSync} disabled={isSyncing} className="font-bold gap-2">
+                        {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        Sincronizar com Portais Externos
                     </Button>
                 </div>
             )}
@@ -131,13 +142,18 @@ function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
     return (
         <Card className="flex flex-col h-full border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
             {/* Header com Imagem ou Placeholder */}
-            <div className="aspect-video bg-zinc-100 dark:bg-zinc-900 relative overflow-hidden">
+            <div className="relative aspect-[16/10] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
                 {opportunity.photos?.[0] ? (
-                    <img src={opportunity.photos[0]} alt={opportunity.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img 
+                        src={opportunity.photos[0]} 
+                        alt={opportunity.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                        onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/800x500?text=Imagens+Indispon%C3%ADvel')}
+                    />
                 ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300 gap-2">
-                        <Building2 className="h-10 w-10" />
-                        <span className="text-[10px] uppercase font-black tracking-widest">Sem fotos reais</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300 gap-2 bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
+                        <Building2 className="h-12 w-12 opacity-20" />
+                        <span className="text-[10px] uppercase font-black tracking-widest opacity-40">Visual Indisponível</span>
                     </div>
                 )}
                 

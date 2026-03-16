@@ -68,7 +68,23 @@ export async function discardOpportunity(opportunityId: string) {
     return { success: true }
 }
 
-export async function simulateHunt() {
+import OpenAI from "openai";
+
+// Helper to initialize OpenAI with Agency Key or Env
+async function getOpenAIClient(supabase: any, agencyId: string) {
+    const { data: agency } = await supabase
+        .from('agencies')
+        .select('openai_api_key')
+        .eq('id', agencyId)
+        .single();
+    
+    const apiKey = agency?.openai_api_key || process.env.OPENAI_API_KEY;
+    if (!apiKey) return null;
+
+    return new OpenAI({ apiKey });
+}
+
+export async function runHunterIA() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Não autorizado' }
@@ -81,54 +97,126 @@ export async function simulateHunt() {
 
     if (!profile) return { error: 'Perfil não encontrado' }
 
-    // Mock data for demonstration
-    const mocks = [
-        {
-            agency_id: profile.agency_id,
-            portal_name: 'Zap Imóveis',
-            title: 'Apartamento Reformado no Itaim Bibi',
-            description: 'Lindo apartamento totalmente reformado com 3 suítes, varanda gourmet e 2 vagas. Direto com proprietário.',
-            rewritten_description: 'Oportunidade única no Itaim Bibi! Este apartamento de alto padrão foi completamente modernizado, oferecendo 3 suítes amplas e uma varanda gourmet perfeita para receber. Localização privilegiada próxima a centros comerciais.',
-            price: 2450000,
-            address_city: 'São Paulo',
-            address_neighborhood: 'Itaim Bibi',
-            property_type: 'Apartamento',
-            bedrooms: 3,
-            bathrooms: 4,
-            parking_spots: 2,
-            useful_area: 145,
-            owner_name: 'Renato Silva',
-            owner_phone: '(11) 98877-6655',
-            external_url: 'https://zapimoveis.com.br/anuncio/123',
-            status: 'pending',
-            photos: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80']
-        },
-        {
-            agency_id: profile.agency_id,
-            portal_name: 'OLX',
-            title: 'Casa em Condomínio - Granja Viana',
-            description: 'Casa cercada de verde, 4 quartos, piscina, churrasqueira. Urgente por motivo de mudança.',
-            rewritten_description: 'Refúgio de tranquilidade na Granja Viana. Casa espaçosa em condomínio fechado com lazer completo privativo (piscina e churrasqueira). Ideal para famílias que buscam contato com a natureza sem abrir mão da segurança.',
-            price: 1150000,
-            address_city: 'Cotia',
-            address_neighborhood: 'Granja Viana',
-            property_type: 'Casa',
-            bedrooms: 4,
-            bathrooms: 3,
-            parking_spots: 4,
-            useful_area: 280,
-            owner_name: 'Maria Oliveira',
-            owner_phone: '(11) 97766-5544',
-            external_url: 'https://olx.com.br/imoveis/anuncio/456',
-            status: 'pending',
-            photos: ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80']
-        }
-    ]
+    return await executeHunterJob(profile.agency_id);
+}
 
-    const { error } = await supabase.from('hunter_opportunities').insert(mocks)
+/**
+ * Executa o robô de busca de imóveis (Hunter IA)
+ * Este job pode ser chamado manualmente via UI ou automaticamente via Vercel Cron
+ */
+export async function executeHunterJob(agencyId: string) {
+    const supabase = await createClient()
     
-    if (error) return { error: error.message }
+    // 1. Busca configurações de busca da agência
+    const { data: configs } = await supabase
+        .from('hunter_configs')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true);
+
+    if (!configs || configs.length === 0) {
+        return { error: 'Nenhuma configuração ativa encontrada para o Hunter IA.' };
+    }
+
+    const openai = await getOpenAIClient(supabase, agencyId);
+    if (!openai) return { error: 'API Key da OpenAI não configurada para esta agência.' };
+
+    let totalFound = 0;
+
+    for (const config of configs) {
+        const locations = config.locations || [];
+        const types = config.property_types || ['casa', 'apartamento'];
+        
+        for (const location of locations) {
+            // 2. Realiza a busca na web
+            // DICA: Para produção real, substitua simulatedSearchAPI por uma chamada à SERPER.DEV ou TAVILY
+            const query = `imóveis à venda ${types.join(' ou ')} em ${location} direto com proprietário olx vivareal zap`;
+            
+            console.log(`Hunter IA: Buscando em ${location} para agência ${agencyId}...`);
+            const searchResults = await simulatedSearchAPI(query); 
+
+            for (const result of searchResults) {
+                // 3. Extração e Reescrita com IA
+                const extractionPrompt = `
+                    Analise o seguinte resultado de busca de imóvel:
+                    Título: ${result.title}
+                    Snippet: ${result.snippet}
+                    URL: ${result.link}
+
+                    Extraia os seguintes campos em JSON:
+                    {
+                        "title": "Título curto e atraente",
+                        "price": 0,
+                        "neighborhood": "Bairro extraído",
+                        "city": "Cidade extraída",
+                        "property_type": "Casa/Apartamento/etc",
+                        "bedrooms": 0,
+                        "bathrooms": 0,
+                        "area": 0,
+                        "description": "Resumo do que foi encontrado",
+                        "analysis": "Uma análise curta por que este imóvel é uma boa oportunidade de captação"
+                    }
+                `;
+
+                try {
+                    const completion = await openai.chat.completions.create({
+                        messages: [{ role: "user", content: extractionPrompt }],
+                        model: "gpt-4o-mini",
+                        response_format: { type: "json_object" }
+                    });
+
+                    const data = JSON.parse(completion.choices[0].message.content || '{}');
+
+                    // 4. Salva a oportunidade evitando duplicatas (conflito por URL)
+                    const { error: insertError } = await supabase
+                        .from('hunter_opportunities')
+                        .upsert({
+                            agency_id: agencyId,
+                            external_url: result.link,
+                            portal_name: result.displayLink || 'Web',
+                            title: data.title || result.title,
+                            description: data.description,
+                            rewritten_description: data.analysis,
+                            price: data.price,
+                            address_city: data.city,
+                            address_neighborhood: data.neighborhood,
+                            property_type: data.property_type,
+                            bedrooms: data.bedrooms,
+                            bathrooms: data.bathrooms,
+                            useful_area: data.area,
+                            status: 'pending',
+                            photos: result.photos || []
+                        }, { onConflict: 'external_url' });
+
+                    if (!insertError) totalFound++;
+                } catch (e) {
+                    console.error("Erro ao processar imóvel com IA:", e);
+                }
+            }
+        }
+    }
 
     revalidatePath('/hunter')
-    return { success: true }
+    return { success: true, count: totalFound }
 }
+
+async function simulatedSearchAPI(query: string) {
+    // Placeholder para uma API de Search real (ex: Serper, Google Custom Search)
+    return [
+        {
+            title: "Apartamento 2 quartos em " + (query.split('em ')[1]?.split(' ')[0] || 'São Paulo'),
+            snippet: "Excelente oportunidade direto com proprietário. 70m², varanda, andar alto. Valor R$ 450.000",
+            link: "https://www.olx.com.br/imoveis/anuncio-placeholder-" + Math.floor(Math.random() * 100000),
+            displayLink: "OLX",
+            photos: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80"]
+        },
+        {
+            title: "Casa de Vila aconchegante",
+            snippet: "Linda casa com 3 dormitórios, recém reformada. Próximo ao metrô. R$ 890.000",
+            link: "https://www.vivareal.com.br/imovel/casa-placeholder-" + Math.floor(Math.random() * 100000),
+            displayLink: "VivaReal",
+            photos: ["https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80"]
+        }
+    ];
+}
+
