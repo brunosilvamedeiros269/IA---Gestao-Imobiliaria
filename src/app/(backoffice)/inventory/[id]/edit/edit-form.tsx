@@ -24,7 +24,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { updateProperty } from './actions'
-import { generatePropertyDescription } from '../new/ai-actions'
+import { generatePropertyDescription } from '../../new/ai-actions'
 import { toast } from 'sonner'
 import { PropertyGallery } from '@/components/property-gallery'
 import { cn } from '@/lib/utils'
@@ -111,17 +111,16 @@ export function EditPropertyForm({ property }: { property: PropertyRow }) {
                 title,
                 type: propertyType,
                 listingType,
-                price: price.replace(/\D/g, ''),
-                features: {
-                    bedrooms,
-                    suites: suitesCount,
-                    bathrooms,
-                    parking: parkingSpots,
-                    area: usefulArea,
-                    isFurnished,
-                    petsAllowed,
-                    amenities: amenities.map(a => AMENITIES_OPTIONS.find(opt => opt.id === a)?.label || a)
-                }
+                price: Number(price.replace(/\D/g, '')),
+                bedrooms,
+                suites: suitesCount,
+                bathrooms,
+                area: usefulArea,
+                isFurnished,
+                petsAllowed,
+                amenities: amenities.map(a => AMENITIES_OPTIONS.find(opt => opt.id === a)?.label || a),
+                neighborhood,
+                city
             })
 
             if (result.error) {
@@ -256,7 +255,7 @@ export function EditPropertyForm({ property }: { property: PropertyRow }) {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="listing_type">Finalidade</Label>
-                                    <Select name="listing_type" value={listingType} onValueChange={setListingType}>
+                                    <Select name="listing_type" value={listingType} onValueChange={(v) => setListingType(v as 'sale' | 'rent')}>
                                         <SelectTrigger id="listing_type" className="h-11 rounded-xl bg-zinc-50 dark:bg-zinc-950 border-zinc-200">
                                             <SelectValue placeholder="Selecione..." />
                                         </SelectTrigger>
@@ -271,7 +270,7 @@ export function EditPropertyForm({ property }: { property: PropertyRow }) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="property_type">Tipo de Imóvel</Label>
-                                    <Select name="property_type" value={propertyType} onValueChange={setPropertyType}>
+                                    <Select name="property_type" value={propertyType} onValueChange={(v) => setPropertyType(v as any)}>
                                         <SelectTrigger id="property_type" className="h-11 rounded-xl bg-zinc-50 dark:bg-zinc-950 border-zinc-200">
                                             <SelectValue placeholder="Selecione..." />
                                         </SelectTrigger>

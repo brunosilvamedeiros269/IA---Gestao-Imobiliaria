@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, MapPin, ArrowRight, Home, Building, Sparkles } from 'lucide-react'
 import Link from 'next/link'
+import { LeadCaptureForm } from '@/components/public/LeadCaptureForm'
 
 interface PageProps {
     params: {
@@ -59,10 +60,11 @@ export default async function AgencyPortalHomePage({ params }: PageProps) {
                     </div>
 
                     {/* Main Search Bar */}
-                    <div className="max-w-3xl mx-auto bg-white p-2 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-2 border border-zinc-200/50 backdrop-blur-xl">
+                    <form action={`/${slug}/imoveis`} className="max-w-3xl mx-auto bg-white p-2 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-2 border border-zinc-200/50 backdrop-blur-xl">
                         <div className="flex-1 w-full relative">
                             <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                             <Input 
+                                name="q"
                                 className="h-14 pl-14 border-none bg-transparent shadow-none text-lg font-bold placeholder:text-zinc-400 focus-visible:ring-0" 
                                 placeholder="Cidade, bairro ou condomínio..." 
                             />
@@ -72,10 +74,10 @@ export default async function AgencyPortalHomePage({ params }: PageProps) {
                              <Home className="h-5 w-5 text-zinc-400" />
                              <span className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Tipo de Imóvel</span>
                         </div>
-                        <Button className="h-14 px-8 rounded-full font-black uppercase tracking-tighter w-full md:w-auto text-lg shadow-xl shadow-primary/20">
+                        <Button type="submit" className="h-14 px-8 rounded-full font-black uppercase tracking-tighter w-full md:w-auto text-lg shadow-xl shadow-primary/20">
                             <Search className="mr-2 h-5 w-5" /> Buscar
                         </Button>
-                    </div>
+                    </form>
                 </div>
             </section>
 
@@ -145,6 +147,42 @@ export default async function AgencyPortalHomePage({ params }: PageProps) {
                                 </div>
                             </Link>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Lead Capture Section */}
+            <section className="py-24 bg-zinc-50 border-t border-zinc-100">
+                <div className="container mx-auto px-4">
+                    <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-16 items-center">
+                        <div className="flex-1 space-y-8 text-center lg:text-left">
+                            <div className="space-y-4">
+                                <Badge className="bg-primary/10 text-primary border-none px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">
+                                    Dúvidas ou Propostas?
+                                </Badge>
+                                <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-zinc-900 uppercase leading-[0.9]">
+                                    Fale com nossos <span className="text-primary">especialistas</span> hoje mesmo.
+                                </h2>
+                                <p className="text-xl text-zinc-500 font-medium tracking-tight">
+                                    Encontre o imóvel ideal com atendimento personalizado e Inteligência Artificial para acelerar sua busca.
+                                </p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-8 py-4">
+                                <div className="space-y-2">
+                                    <h4 className="text-3xl font-black text-zinc-900 tracking-tighter">100%</h4>
+                                    <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Transparência</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <h4 className="text-3xl font-black text-zinc-900 tracking-tighter">24h</h4>
+                                    <p className="text-xs font-black text-zinc-400 uppercase tracking-widest">Resposta média</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 w-full max-w-xl">
+                            <LeadCaptureForm agencyId={agency?.id} />
+                        </div>
                     </div>
                 </div>
             </section>

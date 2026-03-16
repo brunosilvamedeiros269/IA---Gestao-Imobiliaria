@@ -100,7 +100,8 @@ export async function simulateHunt() {
             owner_name: 'Renato Silva',
             owner_phone: '(11) 98877-6655',
             external_url: 'https://zapimoveis.com.br/anuncio/123',
-            status: 'pending'
+            status: 'pending',
+            photos: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80']
         },
         {
             agency_id: profile.agency_id,
@@ -119,7 +120,8 @@ export async function simulateHunt() {
             owner_name: 'Maria Oliveira',
             owner_phone: '(11) 97766-5544',
             external_url: 'https://olx.com.br/imoveis/anuncio/456',
-            status: 'pending'
+            status: 'pending',
+            photos: ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80']
         }
     ]
 

@@ -3,9 +3,9 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function getHunterConfig() {
+export async function getHunterConfigs() {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Não autorizado' }
 
@@ -17,22 +17,27 @@ export async function getHunterConfig() {
 
     if (!profile) return { error: 'Perfil não encontrado' }
 
-    const { data: config, error } = await supabase
+    const { data: configs, error } = await supabase
         .from('hunter_configs')
         .select('*')
         .eq('agency_id', profile.agency_id)
-        .single()
+        .order('created_at', { ascending: true })
 
-    if (error && error.code !== 'PGRST116') {
-        return { error: error.message }
-    }
+    if (error) return { error: error.message }
 
-    return { config }
+    return { configs: configs || [] }
+}
+
+// Keep backward-compat alias
+export async function getHunterConfig() {
+    const result = await getHunterConfigs()
+    if (result.error) return result
+    return { config: result.configs?.[0] ?? null }
 }
 
 export async function saveHunterConfig(formData: FormData) {
     const supabase = await createClient()
-    
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Não autorizado' }
 
@@ -44,6 +49,8 @@ export async function saveHunterConfig(formData: FormData) {
 
     if (!profile || profile.role !== 'admin') return { error: 'Não autorizado' }
 
+    const configId = formData.get('config_id') as string | null
+    const agentName = (formData.get('agent_name') as string) || 'Agente Principal'
     const locations = (formData.get('locations') as string)?.split(',').map(s => s.trim()).filter(Boolean) || []
     const property_types = formData.getAll('property_types') as string[]
     const min_price = formData.get('min_price') ? Number(formData.get('min_price')) : null
@@ -53,20 +60,63 @@ export async function saveHunterConfig(formData: FormData) {
     const only_direct_owner = formData.get('only_direct_owner') === 'on'
     const is_active = formData.get('is_active') === 'on'
 
+    const payload = {
+        agency_id: profile.agency_id,
+        name: agentName,
+        locations,
+        property_types,
+        min_price,
+        max_price,
+        min_bedrooms,
+        min_area,
+        only_direct_owner,
+        is_active,
+        updated_at: new Date().toISOString()
+    }
+
+    let error: any = null
+
+    if (configId) {
+        // Update existing agent
+        const res = await supabase
+            .from('hunter_configs')
+            .update(payload)
+            .eq('id', configId)
+            .eq('agency_id', profile.agency_id)
+        error = res.error
+    } else {
+        // Create new agent
+        const res = await supabase
+            .from('hunter_configs')
+            .insert(payload)
+        error = res.error
+    }
+
+    if (error) return { error: error.message }
+
+    revalidatePath('/settings')
+    return { success: true }
+}
+
+export async function deleteHunterConfig(configId: string) {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: profile } = await supabase
+        .from('users_profile')
+        .select('agency_id, role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.role !== 'admin') return { error: 'Não autorizado' }
+
     const { error } = await supabase
         .from('hunter_configs')
-        .upsert({
-            agency_id: profile.agency_id,
-            locations,
-            property_types,
-            min_price,
-            max_price,
-            min_bedrooms,
-            min_area,
-            only_direct_owner,
-            is_active,
-            updated_at: new Date().toISOString()
-        })
+        .delete()
+        .eq('id', configId)
+        .eq('agency_id', profile.agency_id)
 
     if (error) return { error: error.message }
 

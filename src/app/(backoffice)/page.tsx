@@ -8,13 +8,19 @@ import {
     TrendingUp,
     ChevronRight,
     Search,
-    PlusCircle
+    PlusCircle,
+    Clock
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export default async function DashboardPage() {
     const metrics = await getDashboardMetrics()
+
+    // Helper to get max count for funnel scaling
+    const maxFunnelCount = Math.max(...metrics.funnelDistribution.map(d => d.count), 1)
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -40,7 +46,7 @@ export default async function DashboardPage() {
                         <div className="text-2xl font-bold">{metrics.activeProperties}</div>
                         <p className="text-[10px] text-zinc-400 mt-1 flex items-center">
                             <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-                            +2 novos esta semana
+                            Gestão da carteira ativa
                         </p>
                     </CardContent>
                 </Card>
@@ -55,7 +61,7 @@ export default async function DashboardPage() {
                         <div className="text-2xl font-bold">{metrics.newLeads}</div>
                         <p className="text-[10px] text-zinc-400 mt-1 flex items-center">
                             <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-                            +5% em relação ao mês anterior
+                            Novas oportunidades este mês
                         </p>
                     </CardContent>
                 </Card>
@@ -79,7 +85,7 @@ export default async function DashboardPage() {
                     Ações Rápidas
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Link href="/inventory" className="group">
+                    <Link href="/inventory/new" className="group">
                         <Card className="border-none shadow-md hover:shadow-xl transition-all hover:translate-y-[-2px] bg-gradient-to-br from-white to-zinc-50/50 dark:from-zinc-900 dark:to-zinc-900/50 cursor-pointer overflow-hidden relative">
                             <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
                                 <PlusCircle size={100} />
@@ -117,7 +123,7 @@ export default async function DashboardPage() {
                 </div>
             </div>
 
-            {/* Funil de Vendas Visual (Placeholder simplificado) */}
+            {/* Funil de Vendas Visual & Atividade Recente */}
             <div className="grid gap-4 md:grid-cols-3">
                 <Card className="md:col-span-2 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                     <CardHeader className="flex flex-row items-center justify-between">
@@ -128,16 +134,24 @@ export default async function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-col gap-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-50 dark:border-zinc-900">
-                                    <div className="h-2 w-2 rounded-full bg-primary" />
-                                    <div className="flex-1">
-                                        <p className="text-xs font-bold">Novo lead registrado via Portal Imóvel</p>
-                                        <p className="text-[10px] text-zinc-400">Há 2 horas atrás</p>
+                            {metrics.recentActivity.length > 0 ? (
+                                metrics.recentActivity.map((activity) => (
+                                    <div key={activity.id} className="flex items-center gap-3 p-3 rounded-lg border border-zinc-50 dark:border-zinc-900">
+                                        <div className="h-2 w-2 rounded-full bg-primary" />
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold">{activity.title}</p>
+                                            <p className="text-[10px] text-zinc-400">
+                                                {formatDistanceToNow(new Date(activity.date), { addSuffix: true, locale: ptBR })}
+                                            </p>
+                                        </div>
+                                        <Link href={`/crm/${activity.id}`}>
+                                            <ChevronRight className="h-3 w-3 text-zinc-300 hover:text-primary transition-colors" />
+                                        </Link>
                                     </div>
-                                    <ChevronRight className="h-3 w-3 text-zinc-300" />
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p className="text-xs text-zinc-500 text-center py-4">Nenhuma atividade recente encontrada.</p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -148,24 +162,29 @@ export default async function DashboardPage() {
                     </CardHeader>
                     <CardContent className="h-[200px] flex flex-col justify-end gap-2">
                         <div className="flex items-end gap-1 h-32">
-                            <div className="flex-1 bg-primary/20 rounded-t-sm h-[90%] relative group">
-                                <div className="absolute bottom-full left-0 w-full text-center text-[10px] mb-1 opacity-0 group-hover:opacity-100 transition-opacity font-bold">45</div>
-                            </div>
-                            <div className="flex-1 bg-indigo-500/20 rounded-t-sm h-[60%] relative group">
-                                <div className="absolute bottom-full left-0 w-full text-center text-[10px] mb-1 opacity-0 group-hover:opacity-100 transition-opacity font-bold">28</div>
-                            </div>
-                            <div className="flex-1 bg-amber-500/20 rounded-t-sm h-[40%] relative group">
-                                <div className="absolute bottom-full left-0 w-full text-center text-[10px] mb-1 opacity-0 group-hover:opacity-100 transition-opacity font-bold">12</div>
-                            </div>
-                            <div className="flex-1 bg-green-500/20 rounded-t-sm h-[15%] relative group">
-                                <div className="absolute bottom-full left-0 w-full text-center text-[10px] mb-1 opacity-0 group-hover:opacity-100 transition-opacity font-bold">4</div>
-                            </div>
+                            {metrics.funnelDistribution.map((d, i) => (
+                                <div 
+                                    key={d.status} 
+                                    className={`flex-1 rounded-t-sm relative group transition-all duration-500 ${
+                                        i === 0 ? 'bg-primary/20' : 
+                                        i === 1 ? 'bg-indigo-500/20' :
+                                        i === 2 ? 'bg-purple-500/20' :
+                                        i === 3 ? 'bg-green-500/20' : 'bg-red-500/20'
+                                    }`}
+                                    style={{ height: `${(d.count / maxFunnelCount) * 100 || 5}%` }}
+                                >
+                                    <div className="absolute bottom-full left-0 w-full text-center text-[10px] mb-1 opacity-0 group-hover:opacity-100 transition-opacity font-bold">
+                                        {d.count}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="grid grid-cols-4 gap-1 text-[8px] font-bold uppercase text-zinc-500 text-center">
+                        <div className="grid grid-cols-5 gap-1 text-[8px] font-bold uppercase text-zinc-500 text-center">
                             <span>Novo</span>
+                            <span>Proc.</span>
                             <span>Visita</span>
-                            <span>Prop.</span>
                             <span>Ganho</span>
+                            <span>Perda</span>
                         </div>
                     </CardContent>
                 </Card>

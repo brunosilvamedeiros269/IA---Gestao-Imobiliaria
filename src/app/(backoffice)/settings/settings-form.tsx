@@ -9,10 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import { User, Building2, Save, Loader2, Camera, Shield, Upload, Target, Brain, Search, Zap, CheckCircle2, Coins, Receipt, Percent, Sparkles, Phone } from 'lucide-react'
-import { updateProfile, updateAgency, uploadAvatar, uploadAgencyLogo } from './actions'
-import { saveHunterConfig } from './hunter-actions'
+import { updateProfile, updateAgency, uploadAvatar, uploadAgencyLogo, updateFinancials } from './actions'
+import { saveHunterConfig, deleteHunterConfig } from './hunter-actions'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Trash2, PlusCircle } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 
 interface SettingsFormProps {
@@ -20,16 +21,23 @@ interface SettingsFormProps {
     agency: any
     role: string
     hunterConfig?: any
+    hunterConfigs?: any[]
 }
 
-export function SettingsForm({ profile, agency, role, hunterConfig }: SettingsFormProps) {
+export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfigs = [] }: SettingsFormProps) {
     const [isPending, startTransition] = useTransition()
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
     const [isUploadingLogo, setIsUploadingLogo] = useState(false)
-    
+    // Use hunterConfigs array if provided; fall back to singleton hunterConfig
+    const [agents, setAgents] = useState<any[]>(
+        hunterConfigs.length > 0 ? hunterConfigs : (hunterConfig ? [hunterConfig] : [])
+    )
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(agents[0]?.id ?? null)
+    const selectedAgent = agents.find(a => a.id === selectedAgentId) ?? null
+
     const avatarInputRef = useRef<HTMLInputElement>(null)
     const logoInputRef = useRef<HTMLInputElement>(null)
-    
+
     const isAdmin = role === 'admin'
 
     const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -52,14 +60,42 @@ export function SettingsForm({ profile, agency, role, hunterConfig }: SettingsFo
         })
     }
 
-    const handleHunterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleFinancialSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         const formData = new FormData(e.currentTarget)
         startTransition(async () => {
+            const res = await updateFinancials(formData)
+            if (res.error) toast.error(res.error)
+            else toast.success('Regras financeiras salvas!')
+        })
+    }
+
+    const handleHunterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
+        if (selectedAgentId) formData.set('config_id', selectedAgentId)
+        startTransition(async () => {
             const res = await saveHunterConfig(formData)
             if (res.error) toast.error(res.error)
-            else toast.success('Configurações do Hunter IA salvas!')
+            else toast.success('Configurações do agente salvas!')
         })
+    }
+
+    const handleDeleteAgent = (id: string) => {
+        startTransition(async () => {
+            const res = await deleteHunterConfig(id)
+            if (res.error) toast.error(res.error)
+            else {
+                const updated = agents.filter(a => a.id !== id)
+                setAgents(updated)
+                setSelectedAgentId(updated[0]?.id ?? null)
+                toast.success('Agente removido.')
+            }
+        })
+    }
+
+    const handleNewAgent = () => {
+        setSelectedAgentId(null)
     }
 
     const onAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -438,6 +474,36 @@ export function SettingsForm({ profile, agency, role, hunterConfig }: SettingsFo
                                     </div>
                                 </div>
                             </div>
+
+                            {/* AI Configuration Section */}
+                            <div className="pt-6 border-t border-zinc-100 dark:border-zinc-900 space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-500 flex items-center gap-2">
+                                    <Brain className="h-4 w-4" />
+                                    Configurações de Inteligência Artificial
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="openai_api_key" className="text-xs font-bold uppercase tracking-wider text-zinc-500">OpenAI API Key</Label>
+                                        <div className="relative group">
+                                            <Input 
+                                                id="openai_api_key" 
+                                                name="openai_api_key" 
+                                                type="password"
+                                                defaultValue={agency.openai_api_key || ''} 
+                                                disabled={!isAdmin}
+                                                placeholder="sk-..."
+                                                className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-mono pr-10" 
+                                            />
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-indigo-500 transition-colors">
+                                                <Zap className="h-4 w-4" />
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-zinc-400 font-medium">
+                                            Esta chave será usada para gerar descrições de imóveis e processar dados via IA para sua agência.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </CardContent>
                         {isAdmin && (
                             <CardFooter className="bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 justify-end py-4">
@@ -453,7 +519,7 @@ export function SettingsForm({ profile, agency, role, hunterConfig }: SettingsFo
 
             {isAdmin && (
                 <TabsContent value="finance" className="animate-in fade-in slide-in-from-bottom-2 duration-400">
-                    <form onSubmit={handleAgencySubmit}>
+                    <form onSubmit={handleFinancialSubmit}>
                         <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 overflow-hidden">
                             <CardHeader className="bg-emerald-900 text-white border-b border-emerald-800">
                                 <CardTitle className="text-xl font-bold flex items-center gap-2">
@@ -575,26 +641,77 @@ export function SettingsForm({ profile, agency, role, hunterConfig }: SettingsFo
             {isAdmin && (
                 <TabsContent value="hunter" className="animate-in fade-in slide-in-from-bottom-2 duration-400">
                     <form onSubmit={handleHunterSubmit}>
+                        {/* Agent Selector */}
+                        <div className="flex items-center gap-3 mb-4 flex-wrap">
+                            {agents.map(agent => (
+                                <button
+                                    key={agent.id}
+                                    type="button"
+                                    onClick={() => setSelectedAgentId(agent.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all ${
+                                        selectedAgentId === agent.id
+                                            ? 'border-primary bg-primary/10 text-primary'
+                                            : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300'
+                                    }`}
+                                >
+                                    <Brain className="h-3.5 w-3.5" />
+                                    {agent.name || 'Agente'}
+                                    {agent.is_active && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={handleNewAgent}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed text-sm font-bold transition-all ${
+                                    selectedAgentId === null && agents.length > 0
+                                        ? 'border-primary bg-primary/10 text-primary'
+                                        : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:border-zinc-300'
+                                }`}
+                            >
+                                <PlusCircle className="h-3.5 w-3.5" />
+                                Novo Agente
+                            </button>
+                        </div>
+
                         <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 overflow-hidden">
                             <CardHeader className="bg-zinc-900 text-white border-b border-zinc-800">
                                 <div className="flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-xl font-bold flex items-center gap-2">
+                                    <div className="space-y-1 flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
                                             <Brain className="h-5 w-5 text-primary" />
-                                            Agente de Captação Hunter IA
-                                        </CardTitle>
+                                            <input
+                                                name="agent_name"
+                                                defaultValue={selectedAgent?.name || ''}
+                                                key={selectedAgentId ?? 'new'}
+                                                placeholder="Nome do Agente (ex: Captador SP)"
+                                                className="bg-transparent border-none text-lg font-bold text-white placeholder:text-zinc-500 focus:outline-none w-full"
+                                            />
+                                        </div>
                                         <CardDescription className="text-zinc-400">
-                                            Configure as regras do seu agente automático para prospecção de imóveis.
+                                            Configure as regras do agente automático para prospecção de imóveis.
                                         </CardDescription>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-zinc-800 p-1.5 rounded-xl border border-zinc-700">
-                                        <Switch 
-                                            name="is_active" 
-                                            defaultChecked={hunterConfig?.is_active !== false} 
-                                        />
-                                        <span className="text-[10px] font-black uppercase tracking-widest px-2">
-                                            {hunterConfig?.is_active !== false ? 'Agente Ativo' : 'Agente Pausado'}
-                                        </span>
+                                    <div className="flex items-center gap-3">
+                                        {selectedAgentId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteAgent(selectedAgentId)}
+                                                className="p-2 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-800/40 transition-colors"
+                                                title="Remover este agente"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                        <div className="flex items-center gap-2 bg-zinc-800 p-1.5 rounded-xl border border-zinc-700">
+                                            <Switch
+                                                name="is_active"
+                                                defaultChecked={selectedAgent?.is_active !== false}
+                                                key={`active-${selectedAgentId}`}
+                                            />
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2">
+                                                {selectedAgent?.is_active !== false ? 'Ativo' : 'Pausado'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>

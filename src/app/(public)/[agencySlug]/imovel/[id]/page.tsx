@@ -9,8 +9,27 @@ import {
     CheckCircle2, Info, ChevronRight,
     Square
 } from 'lucide-react'
-import { captureLead } from './actions'
+import { LeadCaptureForm } from '@/components/public/LeadCaptureForm'
 import Link from 'next/link'
+import { Metadata } from 'next'
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+    const supabase = await createClient()
+    const { id } = await params
+    
+    const { data: property } = await supabase
+        .from('properties')
+        .select('title, agencies(name)')
+        .eq('id', id)
+        .single()
+
+    if (!property) return { title: 'Imóvel não encontrado' }
+
+    return {
+        title: `${property.title} | ${(property.agencies as any)?.name}`,
+        description: `Confira os detalhes deste imóvel incrível em ${(property.agencies as any)?.name}.`,
+    }
+}
 
 interface PageProps {
     params: {
@@ -192,47 +211,12 @@ export default async function PublicPropertyPage({ params }: PageProps) {
                             </Card>
 
                             {/* Lead Capture Form */}
-                            <Card className="rounded-[2.5rem] border border-zinc-200 shadow-xl overflow-hidden bg-white">
-                                <CardContent className="p-8 space-y-6">
-                                    <div className="space-y-2">
-                                        <h4 className="text-lg font-black uppercase tracking-tight text-zinc-900">Mande uma mensagem</h4>
-                                        <p className="text-xs text-zinc-500 font-bold">Nossa equipe entrará em contato em minutos.</p>
-                                    </div>
-
-                                    <form action={captureLead} className="space-y-4">
-                                        <input type="hidden" name="property_id" value={id} />
-                                        <input type="hidden" name="agency_id" value={agency.id} />
-                                        
-                                        <div className="space-y-1">
-                                            <input 
-                                                name="name"
-                                                required
-                                                placeholder="Seu nome completo"
-                                                className="w-full h-12 bg-zinc-50 border-zinc-100 rounded-xl px-4 text-sm font-bold focus:ring-2 focus:ring-primary outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <input 
-                                                name="phone"
-                                                required
-                                                placeholder="WhatsApp (com DDD)"
-                                                className="w-full h-12 bg-zinc-50 border-zinc-100 rounded-xl px-4 text-sm font-bold focus:ring-2 focus:ring-primary outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <textarea 
-                                                name="message"
-                                                rows={3}
-                                                placeholder="Gostaria de mais informações sobre..."
-                                                className="w-full bg-zinc-50 border-zinc-100 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none transition-all resize-none"
-                                            />
-                                        </div>
-                                        <Button type="submit" variant="outline" className="w-full h-14 rounded-xl font-black uppercase tracking-widest text-[10px] border-zinc-200 hover:bg-zinc-50">
-                                            Enviar Interesse <ChevronRight className="ml-2 h-4 w-4 text-primary" />
-                                        </Button>
-                                    </form>
-                                </CardContent>
-                            </Card>
+                            <LeadCaptureForm 
+                                agencyId={agency.id} 
+                                propertyId={id}
+                                title="Fale com a gente"
+                                subtitle="Tem interesse neste imóvel? Deixe seus dados e retornaremos em breve."
+                            />
 
                             <div className="flex items-center gap-4 px-6 py-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                                 <Info className="h-5 w-5 text-zinc-400" />

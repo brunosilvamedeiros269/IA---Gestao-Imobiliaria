@@ -13,6 +13,7 @@ interface PageProps {
         type?: string
         category?: string
         city?: string
+        q?: string
         minPrice?: string
         maxPrice?: string
     }
@@ -42,7 +43,11 @@ export default async function PublicListingPage({ params, searchParams }: PagePr
 
     if (sParams.type) query = query.eq('listing_type', sParams.type)
     if (sParams.category) query = query.eq('property_type', sParams.category)
-    if (sParams.city) query = query.ilike('address_city', `%${sParams.city}%`)
+    if (sParams.q) {
+        query = query.or(`title.ilike.%${sParams.q}%,address_city.ilike.%${sParams.q}%,address_neighborhood.ilike.%${sParams.q}%`)
+    } else if (sParams.city) {
+        query = query.ilike('address_city', `%${sParams.city}%`)
+    }
     
     if (sParams.minPrice) query = query.gte('price', parseInt(sParams.minPrice))
     if (sParams.maxPrice) query = query.lte('price', parseInt(sParams.maxPrice))
@@ -54,13 +59,13 @@ export default async function PublicListingPage({ params, searchParams }: PagePr
             {/* Filter Header */}
             <div className="bg-white border-b sticky top-20 z-40 py-4 shadow-sm">
                 <div className="container mx-auto px-4">
-                    <form className="flex flex-wrap items-center gap-4">
+                    <form method="GET" className="flex flex-wrap items-center gap-4">
                         <div className="flex-1 min-w-[200px] relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <Input 
-                                placeholder="Cidade ou bairro..." 
-                                defaultValue={sParams.city}
-                                name="city"
+                                placeholder="Cidade, bairro ou ID..." 
+                                defaultValue={sParams.q || sParams.city}
+                                name="q"
                                 className="pl-10 h-11 bg-zinc-50 border-zinc-200 rounded-xl font-bold" 
                             />
                         </div>
@@ -69,7 +74,7 @@ export default async function PublicListingPage({ params, searchParams }: PagePr
                             defaultValue={sParams.type || ''}
                             className="h-11 px-4 bg-zinc-50 border border-zinc-200 rounded-xl font-bold text-sm focus:ring-2 focus:ring-primary outline-none"
                         >
-                            <option value="">Finalidade</option>
+                            <option value="">Finalidade (Venda/Aluguel)</option>
                             <option value="sale">Venda</option>
                             <option value="rent">Aluguel</option>
                         </select>
@@ -83,8 +88,9 @@ export default async function PublicListingPage({ params, searchParams }: PagePr
                             <option value="Casa">Casa</option>
                             <option value="Sobrado">Sobrado</option>
                             <option value="Terreno">Terreno</option>
+                            <option value="Comercial">Comercial</option>
                         </select>
-                        <Button className="h-11 px-6 rounded-xl font-black uppercase tracking-widest text-xs">
+                        <Button type="submit" className="h-11 px-6 rounded-xl font-black uppercase tracking-widest text-xs">
                             <Filter className="mr-2 h-4 w-4" /> Filtrar
                         </Button>
                     </form>

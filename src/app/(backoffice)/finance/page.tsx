@@ -6,17 +6,24 @@ import {
     TrendingUp, 
     Users, 
     ArrowUpRight, 
-    ArrowDownRight, 
     Wallet,
-    Receipt,
-    Search,
-    Filter
+    Receipt
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { FinanceHeaderActions } from './finance-header-actions'
+import { FinanceFilters } from './finance-filters'
 
-export default async function FinancePage() {
-    const data = await getFinancialSummary()
+interface FinancePageProps {
+    searchParams: Promise<{
+        search?: string
+        status?: string
+        type?: string
+    }>
+}
+
+export default async function FinancePage({ searchParams }: FinancePageProps) {
+    const resolvedParams = await searchParams
+    const data = await getFinancialSummary(resolvedParams)
 
     if (!data) return <div>Carregando...</div>
 
@@ -34,18 +41,10 @@ export default async function FinancePage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Centro Financeiro</h1>
+                    <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">Centro Financeiro</h1>
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium">Gestão de VGV, comissões e repasses da agência.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" className="gap-2 font-bold">
-                        <Filter className="h-4 w-4" />
-                        Filtros
-                    </Button>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2">
-                        + Novo Lançamento
-                    </Button>
-                </div>
+                <FinanceHeaderActions />
             </div>
 
             {/* Metrics Grid */}
@@ -57,9 +56,8 @@ export default async function FinancePage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-black">{formatCurrency(summary.vgv)}</div>
-                        <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-1">
-                            <ArrowUpRight className="h-3 w-3" />
-                            +12.5% em relação ao mês anterior
+                        <p className="text-[10px] text-zinc-400 font-bold flex items-center gap-1 mt-1 uppercase">
+                            Volume Geral de Vendas no período
                         </p>
                     </CardContent>
                 </Card>
@@ -95,24 +93,23 @@ export default async function FinancePage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-black text-emerald-400">{formatCurrency(summary.netAgency)}</div>
-                        <p className="text-[10px] text-zinc-500 font-medium mt-1">Receita líquida retida pela casa</p>
+                        <p className="text-[10px] text-zinc-500 font-medium mt-1">Receita líquida da casa</p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Transactions Table */}
             <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 p-6">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
                             <Receipt className="h-5 w-5 text-primary" />
-                            Transações Recentes
+                            Transações
                         </CardTitle>
-                        <CardDescription>Lista detalhada de vendas e locações fechadas no CRM.</CardDescription>
+                        <CardDescription>Lista detalhada de vendas e locações fechadas.</CardDescription>
                     </div>
-                    <div className="relative w-72">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input placeholder="Buscar transação..." className="pl-9 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
+                    <div className="flex-1 max-w-2xl">
+                        <FinanceFilters />
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -132,7 +129,9 @@ export default async function FinancePage() {
                                 {transactions.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-12 text-center text-zinc-500 font-medium">
-                                            Nenhuma transação registrada ainda. No CRM, feche um negócio para ver os dados aqui.
+                                            {Object.keys(resolvedParams).length > 0 
+                                                ? 'Nenhuma transação encontrada para estes filtros.' 
+                                                : 'Nenhuma transação registrada ainda.'}
                                         </td>
                                     </tr>
                                 ) : (
@@ -142,10 +141,10 @@ export default async function FinancePage() {
                                                 {new Date(tx.closing_date).toLocaleDateString('pt-BR')}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-zinc-900 dark:text-zinc-100">{tx.property?.title}</div>
+                                                <div className="font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-tight line-clamp-1">{tx.property?.title}</div>
                                                 <div className="text-xs text-zinc-500 flex items-center gap-1">
                                                     <Users className="h-3 w-3" />
-                                                    {tx.lead?.name}
+                                                    {tx.lead?.name || 'Cliente Direto'}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-black">

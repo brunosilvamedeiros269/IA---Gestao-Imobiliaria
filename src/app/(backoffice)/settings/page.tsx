@@ -33,12 +33,12 @@ export default async function SettingsPage() {
         throw new Error('Agência não encontrada')
     }
 
-    // Fetch hunter config
-    const { data: hunterConfig } = await supabase
+    // Fetch all hunter configs for this agency (multi-agent)
+    const { data: hunterConfigs } = await supabase
         .from('hunter_configs')
         .select('*')
         .eq('agency_id', agency.id)
-        .single()
+        .order('created_at', { ascending: true })
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -57,7 +57,7 @@ export default async function SettingsPage() {
                 profile={profile} 
                 agency={agency} 
                 role={profile.role} 
-                hunterConfig={hunterConfig}
+                hunterConfigs={hunterConfigs || []}
             />
         </div>
     )

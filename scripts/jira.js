@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
+require('dotenv').config(); // Fallback to .env
 
 const SITE = process.env.ATLASSIAN_SITE;
 const EMAIL = process.env.ATLASSIAN_EMAIL;

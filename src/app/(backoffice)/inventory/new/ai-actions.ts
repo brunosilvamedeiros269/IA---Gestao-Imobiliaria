@@ -1,10 +1,7 @@
 "use server";
 
+import { createClient } from "@/utils/supabase/server";
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 export async function generatePropertyDescription(data: {
   title: string;
@@ -23,11 +20,38 @@ export async function generatePropertyDescription(data: {
   neighborhood?: string;
   city?: string;
 }) {
-  if (!process.env.OPENAI_API_KEY) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Não autorizado" };
+
+  // Fetch user profile to get agency_id
+  const { data: profile } = await supabase
+    .from('users_profile')
+    .select('agency_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile) return { error: "Perfil não encontrado" };
+
+  // Fetch agency to get their OpenAI API Key
+  const { data: agency } = await supabase
+    .from('agencies')
+    .select('openai_api_key')
+    .eq('id', profile.agency_id)
+    .single();
+
+  const apiKey = agency?.openai_api_key || process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
     return {
-      error: "API Key da OpenAI não configurada. Por favor, adicione a chave ao arquivo .env",
+      error: "API Key da OpenAI não encontrada. Por favor, configure-a no painel de Configurações da Agência.",
     };
   }
+
+  const openai = new OpenAI({
+    apiKey: apiKey,
+  });
 
   try {
     const prompt = `

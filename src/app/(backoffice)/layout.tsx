@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { Header } from '@/components/backoffice/Header'
 import { Sidebar } from '@/components/backoffice/Sidebar'
 import { logger } from '@/utils/logger'
+import { Toaster } from 'sonner'
 
 export default async function BackofficeLayout({
     children,
@@ -41,6 +42,7 @@ export default async function BackofficeLayout({
                     {children}
                 </main>
             </div>
+            <Toaster richColors position="top-right" />
         </div>
     )
 }

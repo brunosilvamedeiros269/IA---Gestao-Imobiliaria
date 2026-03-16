@@ -126,6 +126,7 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
 
 function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
     const isClaimed = opportunity.status === 'claimed'
+    const isConverted = opportunity.status === 'converted'
 
     return (
         <Card className="flex flex-col h-full border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
@@ -251,6 +252,19 @@ function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
                             Quero Atender
                         </Button>
                     </>
+                ) : isConverted ? (
+                    <div className="flex w-full items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Imóvel no Inventário!</span>
+                        </div>
+                        <Button size="sm" className="h-8 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700" asChild>
+                            <a href={`/inventory/${opportunity.property_id}`}>
+                                Ver Imóvel
+                                <ExternalLink className="h-3 w-3" />
+                            </a>
+                        </Button>
+                    </div>
                 ) : (
                     <div className="flex w-full items-center justify-between gap-3">
                         <div className="flex items-center gap-2">
@@ -262,9 +276,11 @@ function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
                             </Avatar>
                             <span className="text-[10px] font-bold text-zinc-500 truncate max-w-[80px]">Você está captando</span>
                         </div>
-                        <Button size="sm" className="h-8 text-xs font-bold gap-1.5 bg-zinc-900 hover:bg-black">
-                            Complementar Cadastro
-                            <ExternalLink className="h-3 w-3" />
+                        <Button size="sm" className="h-8 text-xs font-bold gap-1.5 bg-zinc-900 hover:bg-black" asChild>
+                            <a href={`/hunter/${opportunity.id}/completar`}>
+                                Complementar Cadastro
+                                <ExternalLink className="h-3 w-3" />
+                            </a>
                         </Button>
                     </div>
                 )}

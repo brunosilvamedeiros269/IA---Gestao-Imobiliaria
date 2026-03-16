@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { LeadWithProperty, updateLeadStatus } from './actions'
+import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { 
@@ -105,7 +106,26 @@ export function PipelineBoard({ initialLeads }: { initialLeads: LeadWithProperty
                                                     className={`bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-lg shadow-sm group hover:border-primary/50 transition-all ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20 rotate-2' : ''}`}
                                                 >
                                                     <div className="flex justify-between items-start mb-3">
-                                                        <h4 className="font-medium text-zinc-900 dark:text-zinc-100 line-clamp-1">{lead.name}</h4>
+                                                        <div className="flex flex-col gap-1">
+                                                            <h4 className="font-medium text-zinc-900 dark:text-zinc-100 line-clamp-1">{lead.name}</h4>
+                                                            <div className="flex gap-1">
+                                                                {lead.source === 'hunter' && (
+                                                                    <Badge className="bg-primary/10 text-primary border-none text-[8px] py-0 px-1 font-bold uppercase tracking-widest">
+                                                                        AI Hunter
+                                                                    </Badge>
+                                                                )}
+                                                                {lead.source?.includes('portal') && (
+                                                                    <Badge className="bg-indigo-500/10 text-indigo-500 border-none text-[8px] py-0 px-1 font-bold uppercase tracking-widest">
+                                                                        Portal
+                                                                    </Badge>
+                                                                )}
+                                                                {lead.source === 'direct' && (
+                                                                    <Badge className="bg-zinc-100 text-zinc-500 border-none text-[8px] py-0 px-1 font-bold uppercase tracking-widest">
+                                                                        Direto
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                         <Link href={`/crm/${lead.id}`} className="text-zinc-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <ChevronRight className="w-5 h-5" />
                                                         </Link>
@@ -142,11 +162,15 @@ export function PipelineBoard({ initialLeads }: { initialLeads: LeadWithProperty
                                                             <span>Há {formatDistanceToNow(new Date(lead.created_at), { locale: ptBR })}</span>
                                                         </div>
                                                         
-                                                        {(lead as any).urgency_score && URGENCY_ICONS[(lead as any).urgency_score] && (
+                                                        {lead.urgency_score && (
                                                             <div className="flex items-center gap-1">
                                                                 {(() => {
-                                                                    const { icon: Icon, color } = URGENCY_ICONS[(lead as any).urgency_score]
-                                                                    return <Icon className={`w-3.5 h-3.5 ${color}`} />
+                                                                    const score = lead.urgency_score
+                                                                    const config = score >= 5 ? URGENCY_ICONS[5] : 
+                                                                                  score >= 3 ? URGENCY_ICONS[3] : 
+                                                                                  URGENCY_ICONS[1]
+                                                                    const Icon = config.icon
+                                                                    return <Icon className={`w-3.5 h-3.5 ${config.color}`} />
                                                                 })()}
                                                             </div>
                                                         )}

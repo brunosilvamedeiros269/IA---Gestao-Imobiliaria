@@ -41,6 +41,27 @@ export async function getDashboardMetrics() {
         .eq('agency_id', profile.agency_id)
         .eq('funnel_status', 'in_progress')
 
+    // 4. Funnel Distribution
+    const statuses = ['new', 'in_progress', 'visit', 'won', 'lost']
+    const funnelDistribution = await Promise.all(
+        statuses.map(async (status) => {
+            const { count } = await supabase
+                .from('leads')
+                .select('*', { count: 'exact', head: true })
+                .eq('agency_id', profile.agency_id)
+                .eq('funnel_status', status)
+            return { status, count: count || 0 }
+        })
+    )
+
+    // 5. Recent Activity (Latest leads and notes)
+    const { data: recentLeads } = await supabase
+        .from('leads')
+        .select('id, name, created_at, funnel_status')
+        .eq('agency_id', profile.agency_id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
     if (propError || leadError || serviceError) {
         console.error('Dashboard Metrics Error:', { propError, leadError, serviceError })
     }
@@ -49,6 +70,14 @@ export async function getDashboardMetrics() {
         activeProperties: activeProperties || 0,
         newLeads: newLeads || 0,
         activeServices: activeServices || 0,
-        agentName: profile.full_name || 'Agente'
+        agentName: profile.full_name || 'Agente',
+        funnelDistribution,
+        recentActivity: recentLeads?.map(lead => ({
+            id: lead.id,
+            type: 'lead',
+            title: `Novo lead: ${lead.name}`,
+            date: lead.created_at,
+            status: lead.funnel_status
+        })) || []
     }
 }
