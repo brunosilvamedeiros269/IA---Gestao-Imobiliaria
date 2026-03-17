@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
     request: Request,
-    { params }: { params: { agencySlug: string } }
+    { params }: { params: Promise<{ agencySlug: string }> }
 ) {
     const { agencySlug } = await (params as any) // Await params in Next.js 15
     console.log('XML FEED REQUEST - Slug:', agencySlug)

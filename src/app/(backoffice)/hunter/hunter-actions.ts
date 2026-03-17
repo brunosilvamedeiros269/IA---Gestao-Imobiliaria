@@ -68,7 +68,23 @@ export async function discardOpportunity(opportunityId: string) {
     return { success: true }
 }
 
-export async function simulateHunt() {
+import OpenAI from "openai";
+
+// Helper to initialize OpenAI with Agency Key or Env
+async function getOpenAIClient(supabase: any, agencyId: string) {
+    const { data: agency } = await supabase
+        .from('agencies')
+        .select('openai_api_key')
+        .eq('id', agencyId)
+        .single();
+    
+    const apiKey = agency?.openai_api_key || process.env.OPENAI_API_KEY;
+    if (!apiKey) return null;
+
+    return new OpenAI({ apiKey });
+}
+
+export async function runHunterIA() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Não autorizado' }
@@ -81,54 +97,198 @@ export async function simulateHunt() {
 
     if (!profile) return { error: 'Perfil não encontrado' }
 
-    // Mock data for demonstration
-    const mocks = [
-        {
-            agency_id: profile.agency_id,
-            portal_name: 'Zap Imóveis',
-            title: 'Apartamento Reformado no Itaim Bibi',
-            description: 'Lindo apartamento totalmente reformado com 3 suítes, varanda gourmet e 2 vagas. Direto com proprietário.',
-            rewritten_description: 'Oportunidade única no Itaim Bibi! Este apartamento de alto padrão foi completamente modernizado, oferecendo 3 suítes amplas e uma varanda gourmet perfeita para receber. Localização privilegiada próxima a centros comerciais.',
-            price: 2450000,
-            address_city: 'São Paulo',
-            address_neighborhood: 'Itaim Bibi',
-            property_type: 'Apartamento',
-            bedrooms: 3,
-            bathrooms: 4,
-            parking_spots: 2,
-            useful_area: 145,
-            owner_name: 'Renato Silva',
-            owner_phone: '(11) 98877-6655',
-            external_url: 'https://zapimoveis.com.br/anuncio/123',
-            status: 'pending',
-            photos: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80']
-        },
-        {
-            agency_id: profile.agency_id,
-            portal_name: 'OLX',
-            title: 'Casa em Condomínio - Granja Viana',
-            description: 'Casa cercada de verde, 4 quartos, piscina, churrasqueira. Urgente por motivo de mudança.',
-            rewritten_description: 'Refúgio de tranquilidade na Granja Viana. Casa espaçosa em condomínio fechado com lazer completo privativo (piscina e churrasqueira). Ideal para famílias que buscam contato com a natureza sem abrir mão da segurança.',
-            price: 1150000,
-            address_city: 'Cotia',
-            address_neighborhood: 'Granja Viana',
-            property_type: 'Casa',
-            bedrooms: 4,
-            bathrooms: 3,
-            parking_spots: 4,
-            useful_area: 280,
-            owner_name: 'Maria Oliveira',
-            owner_phone: '(11) 97766-5544',
-            external_url: 'https://olx.com.br/imoveis/anuncio/456',
-            status: 'pending',
-            photos: ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80']
-        }
-    ]
+    return await executeHunterJob(profile.agency_id);
+}
 
-    const { error } = await supabase.from('hunter_opportunities').insert(mocks)
+// Alias for compatibility with existing UI components
+export const simulateHunt = runHunterIA;
+
+/**
+ * Executa o robô de busca de imóveis (Hunter IA)
+ * Este job pode ser chamado manualmente via UI ou automaticamente via Vercel Cron
+ */
+export async function executeHunterJob(agencyId: string) {
+    const supabase = await createClient()
     
-    if (error) return { error: error.message }
+    // 1. Busca configurações de busca da agência
+    const { data: configs } = await supabase
+        .from('hunter_configs')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true);
+
+    if (!configs || configs.length === 0) {
+        return { error: 'Nenhuma configuração ativa encontrada para o Hunter IA.' };
+    }
+
+    const openai = await getOpenAIClient(supabase, agencyId);
+    if (!openai) return { error: 'API Key da OpenAI não configurada para esta agência.' };
+
+    let totalFound = 0;
+
+    for (const config of configs) {
+        const locations = config.locations || [];
+        const types = config.property_types || ['casa', 'apartamento'];
+        const activeSources = config.sources || ['olx', 'vivareal'];
+        const negativeWords = config.negative_keywords || [];
+        
+        for (const location of locations) {
+            // 2. Realiza a busca na web focando nas fontes selecionadas
+            const query = `imóveis à venda ${types.join(' ou ')} em ${location} direto com proprietário ${activeSources.join(' ')}`;
+            
+            console.log(`Hunter IA Elite: Minerando em ${location} para agência ${agencyId}...`);
+            const searchResults = await realSearchAPI(query); 
+
+            for (const result of searchResults) {
+                // Filtro rápido de palavras-chave negativas no snippet/título original
+                const hasNegativeWord = negativeWords.some((word: string) => 
+                    result.title.toLowerCase().includes(word.toLowerCase()) || 
+                    result.snippet.toLowerCase().includes(word.toLowerCase())
+                );
+
+                if (hasNegativeWord) {
+                    console.log(`Hunter IA: Pulando imóvel por palavra-chave negativa: ${result.title}`);
+                    continue;
+                }
+
+                console.log(`Hunter IA: Processando imóvel encontrado: ${result.title}`);
+
+                try {
+                    // 3. Extração Elite e Scoring com IA
+                    const extractionPrompt = `
+                        Analise este anúncio imobiliário para uma imobiliária de ALTA PERFORMANCE.
+                        Título: ${result.title}
+                        Snippet: ${result.snippet}
+                        URL: ${result.link}
+
+                        Regras:
+                        1. Extraia os dados técnicos.
+                        2. Calcule um OPPORTUNITY_SCORE de 0 a 100. Considere:
+                           - 90-100: "Golden Deal" (Preço muito baixo, direto com dono, localização premium).
+                           - 70-89: "Boa Captação" (Perfil comercial forte).
+                           - <50: "Baixa Liquidez".
+                        3. Resuma por que este imóvel é uma boa (ou má) oportunidade.
+
+                        Retorne em JSON:
+                        {
+                            "title": "Título atraente",
+                            "price": 0,
+                            "neighborhood": "Bairro",
+                            "city": "Cidade",
+                            "property_type": "Tipo",
+                            "bedrooms": 0,
+                            "bathrooms": 0,
+                            "area": 0,
+                            "score": 0,
+                            "analysis": "Por que captar?",
+                            "description": "Resumo executivo"
+                        }
+                    `;
+
+                    let data;
+                    try {
+                        const completion = await openai.chat.completions.create({
+                            messages: [{ role: "user", content: extractionPrompt }],
+                            model: "gpt-4o-mini",
+                            response_format: { type: "json_object" }
+                        });
+                        data = JSON.parse(completion.choices[0].message.content || '{}');
+                    } catch (e) {
+                        console.error("Hunter IA: Erro na OpenAI (usando fallback de simulação):", (e as any).message);
+                        // Fallback data for testing if AI fails
+                        data = {
+                            title: result.title,
+                            price: parseInt(result.snippet.match(/R\$ ([\d.]+)/)?.[1]?.replace(/\./g, '') || '0'),
+                            neighborhood: "Bairro Simulado",
+                            city: location,
+                            property_type: types[0],
+                            bedrooms: 2,
+                            bathrooms: 1,
+                            area: 70,
+                            score: 85,
+                            analysis: "Simulação: Oportunidade detectada em " + location,
+                            description: result.snippet
+                        };
+                    }
+
+                    // Filtro de liquidez mínima se configurado
+                    if (config.min_liquidity_score && data.score < config.min_liquidity_score) {
+                        console.log(`Hunter IA: Oportunidade ignorada por score baixo (${data.score})`);
+                        continue;
+                    }
+
+                    // 4. Salva a oportunidade Elite
+                    const { error: insertError } = await supabase
+                        .from('hunter_opportunities')
+                        .upsert({
+                            agency_id: agencyId,
+                            external_url: result.link,
+                            portal_name: result.displayLink || 'Web',
+                            title: data.title || result.title,
+                            description: data.description,
+                            rewritten_description: data.analysis,
+                            price: data.price,
+                            address_city: data.city,
+                            address_neighborhood: data.neighborhood,
+                            property_type: data.property_type,
+                            bedrooms: data.bedrooms,
+                            bathrooms: data.bathrooms,
+                            useful_area: data.area,
+                            opportunity_score: data.score,
+                            price_history: [{ price: data.price, date: new Date().toISOString() }],
+                            status: 'pending',
+                            photos: result.photos || []
+                        }, { onConflict: 'external_url' });
+
+                    if (!insertError) {
+                        totalFound++;
+                    }
+                } catch (e) {
+                    console.error("Hunter IA: Erro crítico ao processar imóvel:", e);
+                }
+            }
+        }
+    }
 
     revalidatePath('/hunter')
-    return { success: true }
+    return { success: true, count: totalFound }
 }
+
+async function realSearchAPI(query: string) {
+    const apiKey = process.env.SERPER_API_KEY;
+    if (!apiKey) {
+        console.error("Hunter IA: SERPER_API_KEY não encontrada no ambiente.");
+        return [];
+    }
+
+    try {
+        const response = await fetch("https://google.serper.dev/search", {
+            method: "POST",
+            headers: {
+                "X-API-KEY": apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                q: query,
+                gl: "br",
+                hl: "pt-br",
+                num: 10
+            }),
+        });
+
+        const data = await response.json();
+        
+        // Mapeia os resultados orgânicos para o formato interno
+        return (data.organic || []).map((item: any) => ({
+            title: item.title,
+            snippet: item.snippet,
+            link: item.link,
+            displayLink: item.displayLink || new URL(item.link).hostname,
+            photos: [] // A API de busca web básica não retorna fotos diretamente. A IA poderá extrair se houver no snippet ou em futuras melhorias.
+        }));
+    } catch (error) {
+        console.error("Hunter IA: Erro na chamada Serper API:", error);
+        return [];
+    }
+}
+

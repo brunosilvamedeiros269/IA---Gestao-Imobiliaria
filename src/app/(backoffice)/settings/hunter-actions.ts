@@ -59,6 +59,11 @@ export async function saveHunterConfig(formData: FormData) {
     const min_area = formData.get('min_area') ? Number(formData.get('min_area')) : null
     const only_direct_owner = formData.get('only_direct_owner') === 'on'
     const is_active = formData.get('is_active') === 'on'
+    const frequency = (formData.get('frequency') as string) || '24h'
+    const sources = formData.getAll('sources') as string[]
+    const whatsapp_notifications = formData.get('whatsapp_notifications') === 'on'
+    const min_liquidity_score = formData.get('min_liquidity_score') ? Number(formData.get('min_liquidity_score')) : 0
+    const negative_keywords = (formData.get('negative_keywords') as string)?.split(',').map(s => s.trim()).filter(Boolean) || []
 
     const payload = {
         agency_id: profile.agency_id,
@@ -71,6 +76,11 @@ export async function saveHunterConfig(formData: FormData) {
         min_area,
         only_direct_owner,
         is_active,
+        frequency,
+        sources: sources.length > 0 ? sources : ['olx', 'vivareal'],
+        whatsapp_notifications,
+        min_liquidity_score,
+        negative_keywords,
         updated_at: new Date().toISOString()
     }
 
