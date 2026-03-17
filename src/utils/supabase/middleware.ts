@@ -31,21 +31,13 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || 
-                        request.nextUrl.pathname.startsWith('/signup') || 
-                        request.nextUrl.pathname.startsWith('/auth')
-
-    // Rotas do Backoffice que EXIGEM autenticação
-    const isBackofficeRoute = request.nextUrl.pathname === '/' ||
-                             request.nextUrl.pathname.startsWith('/inventory') ||
-                             request.nextUrl.pathname.startsWith('/crm') ||
-                             request.nextUrl.pathname.startsWith('/finance') ||
-                             request.nextUrl.pathname.startsWith('/hunter') ||
-                             request.nextUrl.pathname.startsWith('/settings') ||
-                             request.nextUrl.pathname.startsWith('/team')
-
-    if (!user && isBackofficeRoute && !isAuthRoute) {
-        // se não há usuário e tenta acessar backoffice, redireciona para login
+    if (
+        !user &&
+        !request.nextUrl.pathname.startsWith('/login') &&
+        !request.nextUrl.pathname.startsWith('/signup') &&
+        !request.nextUrl.pathname.startsWith('/auth')
+    ) {
+        // se não há usuário, e não está no login, redireciona para login
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
