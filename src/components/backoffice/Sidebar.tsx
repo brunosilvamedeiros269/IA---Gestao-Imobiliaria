@@ -12,9 +12,11 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    Coins
+    Coins,
+    Globe
 } from 'lucide-react'
 import { useState } from 'react'
+import { hasPermission, UserRole } from '@/utils/rbac'
 
 export function Sidebar({ agency, role }: { agency: any, role: string }) {
     const pathname = usePathname()
@@ -25,9 +27,14 @@ export function Sidebar({ agency, role }: { agency: any, role: string }) {
         { name: 'Inventário', href: '/inventory', icon: Building2 },
         { name: 'Leads (CRM)', href: '/crm', icon: Inbox },
         { name: 'Radar de Mercado', href: '/hunter', icon: Target },
-        ...(role === 'admin' ? [
+        ...(hasPermission(role as UserRole, 'view_finance') ? [
             { name: 'Financeiro', href: '/finance', icon: Coins },
+        ] : []),
+        ...(hasPermission(role as UserRole, 'manage_team') ? [
             { name: 'Equipe', href: '/team', icon: Users },
+        ] : []),
+        ...(hasPermission(role as UserRole, 'manage_settings') ? [
+            { name: 'Integrações', href: '/settings/integrations', icon: Globe },
             { name: 'Configurações', href: '/settings', icon: Settings },
         ] : []),
     ]

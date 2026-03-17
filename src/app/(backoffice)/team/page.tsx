@@ -96,9 +96,14 @@ export default async function TeamPage() {
                                 </TableCell>
                                 <TableCell>
                                     {member.role === 'admin' ? (
-                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-bold gap-1 py-1">
+                                        <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] font-bold gap-1 py-1">
                                             <Shield className="h-3 w-3" />
                                             ADMIN
+                                        </Badge>
+                                    ) : member.role === 'manager' ? (
+                                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-bold gap-1 py-1">
+                                            <Shield className="h-3 w-3" />
+                                            GERENTE
                                         </Badge>
                                     ) : (
                                         <Badge variant="outline" className="bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 text-[10px] font-bold gap-1 py-1">

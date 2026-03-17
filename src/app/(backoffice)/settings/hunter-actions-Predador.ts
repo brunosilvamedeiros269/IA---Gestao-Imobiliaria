@@ -1,0 +1,135 @@
+'use server'
+
+import { createClient } from '@/utils/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+export async function getHunterConfigs() {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: profile } = await supabase
+        .from('users_profile')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) return { error: 'Perfil não encontrado' }
+
+    const { data: configs, error } = await supabase
+        .from('hunter_configs')
+        .select('*')
+        .eq('agency_id', profile.agency_id)
+        .order('created_at', { ascending: true })
+
+    if (error) return { error: error.message }
+
+    return { configs: configs || [] }
+}
+
+// Keep backward-compat alias
+export async function getHunterConfig() {
+    const result = await getHunterConfigs()
+    if (result.error) return result
+    return { config: result.configs?.[0] ?? null }
+}
+
+export async function saveHunterConfig(formData: FormData) {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: profile } = await supabase
+        .from('users_profile')
+        .select('agency_id, role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.role !== 'admin') return { error: 'Não autorizado' }
+
+    const configId = formData.get('config_id') as string | null
+    const agentName = (formData.get('agent_name') as string) || 'Agente Principal'
+    const locations = (formData.get('locations') as string)?.split(',').map(s => s.trim()).filter(Boolean) || []
+    const property_types = formData.getAll('property_types') as string[]
+    const min_price = formData.get('min_price') ? Number(formData.get('min_price')) : null
+    const max_price = formData.get('max_price') ? Number(formData.get('max_price')) : null
+    const min_bedrooms = formData.get('min_bedrooms') ? Number(formData.get('min_bedrooms')) : null
+    const min_area = formData.get('min_area') ? Number(formData.get('min_area')) : null
+    const only_direct_owner = formData.get('only_direct_owner') === 'on'
+    const is_active = formData.get('is_active') === 'on'
+    const frequency = (formData.get('frequency') as string) || '24h'
+    const sources = formData.getAll('sources') as string[]
+    const whatsapp_notifications = formData.get('whatsapp_notifications') === 'on'
+    const min_liquidity_score = formData.get('min_liquidity_score') ? Number(formData.get('min_liquidity_score')) : 0
+    const negative_keywords = (formData.get('negative_keywords') as string)?.split(',').map(s => s.trim()).filter(Boolean) || []
+
+    const payload = {
+        agency_id: profile.agency_id,
+        name: agentName,
+        locations,
+        property_types,
+        min_price,
+        max_price,
+        min_bedrooms,
+        min_area,
+        only_direct_owner,
+        is_active,
+        frequency,
+        sources: sources.length > 0 ? sources : ['olx', 'vivareal'],
+        whatsapp_notifications,
+        min_liquidity_score,
+        negative_keywords,
+        updated_at: new Date().toISOString()
+    }
+
+    let error: any = null
+
+    if (configId) {
+        // Update existing agent
+        const res = await supabase
+            .from('hunter_configs')
+            .update(payload)
+            .eq('id', configId)
+            .eq('agency_id', profile.agency_id)
+        error = res.error
+    } else {
+        // Create new agent
+        const res = await supabase
+            .from('hunter_configs')
+            .insert(payload)
+        error = res.error
+    }
+
+    if (error) return { error: error.message }
+
+    revalidatePath('/settings')
+    return { success: true }
+}
+
+export async function deleteHunterConfig(configId: string) {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Não autorizado' }
+
+    const { data: profile } = await supabase
+        .from('users_profile')
+        .select('agency_id, role')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile || profile.role !== 'admin') return { error: 'Não autorizado' }
+
+    const { error } = await supabase
+        .from('hunter_configs')
+        .delete()
+        .eq('id', configId)
+        .eq('agency_id', profile.agency_id)
+
+    if (error) return { error: error.message }
+
+    revalidatePath('/settings')
+    return { success: true }
+}

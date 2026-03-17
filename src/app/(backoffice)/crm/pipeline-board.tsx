@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Database } from '@/utils/supabase/database.types'
+import { getLeadScoreLabel } from '@/utils/scoring'
 
 type FunnelStatus = Database['public']['Enums']['funnel_status']
 
@@ -108,7 +109,12 @@ export function PipelineBoard({ initialLeads }: { initialLeads: LeadWithProperty
                                                     <div className="flex justify-between items-start mb-3">
                                                         <div className="flex flex-col gap-1">
                                                             <h4 className="font-medium text-zinc-900 dark:text-zinc-100 line-clamp-1">{lead.name}</h4>
-                                                            <div className="flex gap-1">
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                {lead.lead_score !== null && (
+                                                                    <Badge className={`text-[9px] py-0 px-1.5 border-none font-bold uppercase ${getLeadScoreLabel(lead.lead_score).color}`}>
+                                                                        {getLeadScoreLabel(lead.lead_score).label}
+                                                                    </Badge>
+                                                                )}
                                                                 {lead.source === 'hunter' && (
                                                                     <Badge className="bg-primary/10 text-primary border-none text-[8px] py-0 px-1 font-bold uppercase tracking-widest">
                                                                         AI Hunter
@@ -161,6 +167,13 @@ export function PipelineBoard({ initialLeads }: { initialLeads: LeadWithProperty
                                                             <Clock className="w-3 h-3" />
                                                             <span>Há {formatDistanceToNow(new Date(lead.created_at), { locale: ptBR })}</span>
                                                         </div>
+
+                                                        {lead.users_profile && (
+                                                            <div className="flex items-center gap-1.5 ml-auto mr-3 text-[10px] bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400">
+                                                                <span className="font-semibold uppercase opacity-70">Broker:</span>
+                                                                <span className="truncate max-w-[80px]">{lead.users_profile.full_name.split(' ')[0]}</span>
+                                                            </div>
+                                                        )}
                                                         
                                                         {lead.urgency_score && (
                                                             <div className="flex items-center gap-1">

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
-import { User, Building2, Save, Loader2, Camera, Shield, Upload, Target, Brain, Search, Zap, CheckCircle2, Coins, Receipt, Percent, Sparkles, Phone } from 'lucide-react'
+import { User, Building2, Save, Loader2, Camera, Shield, Upload, Target, Brain, Search, Zap, CheckCircle2, Coins, Receipt, Percent, Sparkles, Phone, Clock, BarChart3, Signal, Globe, Image, LayoutGrid } from 'lucide-react'
 import { updateProfile, updateAgency, uploadAvatar, uploadAgencyLogo, updateFinancials } from './actions'
 import { saveHunterConfig, deleteHunterConfig } from './hunter-actions'
 import { Switch } from '@/components/ui/switch'
@@ -228,7 +228,7 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                                     <Input 
                                         id="full_name" 
                                         name="full_name" 
-                                        defaultValue={profile.full_name} 
+                                        defaultValue={profile.full_name || ''} 
                                         className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
                                     />
                                 </div>
@@ -236,7 +236,7 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                                     <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-zinc-500">E-mail Profissional</Label>
                                     <Input 
                                         id="email" 
-                                        value={profile.email} 
+                                        value={profile.email || ''} 
                                         disabled 
                                         className="bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-400 cursor-not-allowed" 
                                     />
@@ -311,7 +311,7 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                                     <Input 
                                         id="name" 
                                         name="name" 
-                                        defaultValue={agency.name} 
+                                        defaultValue={agency.name || ''} 
                                         disabled={!isAdmin}
                                         className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium disabled:opacity-70" 
                                     />
@@ -320,7 +320,7 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                                     <Label htmlFor="slug" className="text-xs font-bold uppercase tracking-wider text-zinc-500">Subdomínio (Slug)</Label>
                                     <Input 
                                         id="slug" 
-                                        value={agency.slug} 
+                                        value={agency.slug || ''} 
                                         disabled 
                                         className="bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 text-zinc-400 cursor-not-allowed" 
                                     />
@@ -384,6 +384,43 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                                             placeholder="Ex: Encontre o imóvel dos seus sonhos"
                                             className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
                                         />
+                                    </div>
+                                    <div className="space-y-4 sm:col-span-2">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Estilo Visual do Portal (Layout)</Label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {[
+                                                { id: 'modern', name: 'Modern Premium', desc: 'Layout atual, dinâmico e impactante.', icon: Sparkles },
+                                                { id: 'minimalist', name: 'High-End Minimalist', desc: 'Limpo, clássico e focado em sofisticação.', icon: Globe },
+                                                { id: 'grid', name: 'Visual Grid', desc: 'Foco total em imagens e grid moderno.', icon: Image }
+                                            ].map((style) => (
+                                                <Label 
+                                                    key={style.id}
+                                                    className={`relative flex flex-col p-4 rounded-2xl border-2 cursor-pointer transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900 ${
+                                                        (agency.portal_style || 'modern') === style.id 
+                                                            ? 'border-primary bg-primary/5' 
+                                                            : 'border-zinc-100 dark:border-zinc-800'
+                                                    }`}
+                                                >
+                                                    <input 
+                                                        type="radio" 
+                                                        name="portal_style" 
+                                                        value={style.id} 
+                                                        className="absolute opacity-0"
+                                                        defaultChecked={(agency.portal_style || 'modern') === style.id}
+                                                    />
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <style.icon className={`h-4 w-4 ${ (agency.portal_style || 'modern') === style.id ? 'text-primary' : 'text-zinc-400' }`} />
+                                                        <span className="text-sm font-black uppercase tracking-tight">{style.name}</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-zinc-500 leading-tight">{style.desc}</span>
+                                                    {(agency.portal_style || 'modern') === style.id && (
+                                                        <div className="absolute top-2 right-2">
+                                                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                                                        </div>
+                                                    )}
+                                                </Label>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -642,193 +679,261 @@ export function SettingsForm({ profile, agency, role, hunterConfig, hunterConfig
                 <TabsContent value="hunter" className="animate-in fade-in slide-in-from-bottom-2 duration-400">
                     <form onSubmit={handleHunterSubmit}>
                         {/* Agent Selector */}
-                        <div className="flex items-center gap-3 mb-4 flex-wrap">
+                        <div className="flex items-center gap-3 mb-6 flex-wrap">
                             {agents.map(agent => (
                                 <button
                                     key={agent.id}
                                     type="button"
                                     onClick={() => setSelectedAgentId(agent.id)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all ${
+                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border-2 text-sm font-bold transition-all ${
                                         selectedAgentId === agent.id
-                                            ? 'border-primary bg-primary/10 text-primary'
-                                            : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300'
+                                            ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/5'
+                                            : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950'
                                     }`}
                                 >
-                                    <Brain className="h-3.5 w-3.5" />
+                                    <div className={`h-2 w-2 rounded-full ${agent.is_active ? 'bg-green-500 animate-pulse' : 'bg-zinc-300'}`} />
                                     {agent.name || 'Agente'}
-                                    {agent.is_active && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
                                 </button>
                             ))}
                             <button
                                 type="button"
                                 onClick={handleNewAgent}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed text-sm font-bold transition-all ${
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition-all ${
                                     selectedAgentId === null && agents.length > 0
                                         ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:border-zinc-300'
+                                        : 'border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
                                 }`}
                             >
-                                <PlusCircle className="h-3.5 w-3.5" />
-                                Novo Agente
+                                <PlusCircle className="h-4 w-4" />
+                                Novo Agente Especialista
                             </button>
                         </div>
 
-                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950 overflow-hidden">
-                            <CardHeader className="bg-zinc-900 text-white border-b border-zinc-800">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-1 flex-1">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <Brain className="h-5 w-5 text-primary" />
+                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xl bg-white dark:bg-zinc-950 overflow-hidden relative">
+                            {/* Decorative Background Element */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                            
+                            <CardHeader className="bg-zinc-900 text-white border-b border-zinc-800 p-8">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-2 flex-1">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <div className="p-2 bg-primary/20 rounded-lg backdrop-blur-md border border-white/10">
+                                                <Brain className="h-6 w-6 text-primary" />
+                                            </div>
                                             <input
                                                 name="agent_name"
                                                 defaultValue={selectedAgent?.name || ''}
-                                                key={selectedAgentId ?? 'new'}
-                                                placeholder="Nome do Agente (ex: Captador SP)"
-                                                className="bg-transparent border-none text-lg font-bold text-white placeholder:text-zinc-500 focus:outline-none w-full"
+                                                key={`name-${selectedAgentId}`}
+                                                placeholder="Nome do Agente (ex: Especialista Jardins)"
+                                                className="bg-transparent border-none text-2xl font-black text-white placeholder:text-zinc-600 focus:outline-none w-full tracking-tight"
                                             />
                                         </div>
-                                        <CardDescription className="text-zinc-400">
-                                            Configure as regras do agente automático para prospecção de imóveis.
+                                        <CardDescription className="text-zinc-400 font-medium">
+                                            Módulo de Prospecção Ativa com Inteligência Geográfica e Scoring de Liquidez.
                                         </CardDescription>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        {selectedAgentId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteAgent(selectedAgentId)}
-                                                className="p-2 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-800/40 transition-colors"
-                                                title="Remover este agente"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        )}
-                                        <div className="flex items-center gap-2 bg-zinc-800 p-1.5 rounded-xl border border-zinc-700">
+                                    <div className="flex flex-col items-end gap-3">
+                                        <div className="flex items-center gap-3 bg-zinc-800/50 backdrop-blur-md p-2 rounded-2xl border border-zinc-700/50">
                                             <Switch
                                                 name="is_active"
                                                 defaultChecked={selectedAgent?.is_active !== false}
                                                 key={`active-${selectedAgentId}`}
                                             />
-                                            <span className="text-[10px] font-black uppercase tracking-widest px-2">
-                                                {selectedAgent?.is_active !== false ? 'Ativo' : 'Pausado'}
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 text-zinc-300">
+                                                {selectedAgent?.is_active !== false ? 'OPERACIONAL' : 'PAUSADO'}
                                             </span>
                                         </div>
+                                        {selectedAgentId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteAgent(selectedAgentId)}
+                                                className="text-[10px] font-bold text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors px-2"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                                REMOVER AGENTE
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-8 pt-6">
-                                {/* Search Logic */}
-                                <div className="space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                        <Search className="h-4 w-4" />
-                                        Filtros de Busca (Onde caçar?)
-                                    </h3>
-                                    <div className="grid gap-6 sm:grid-cols-2">
-                                        <div className="space-y-2 sm:col-span-2">
-                                            <Label htmlFor="locations" className="text-xs font-bold uppercase tracking-wider text-zinc-500">Cidades e Bairros Alvo (Separados por vírgula)</Label>
-                                            <Input 
-                                                id="locations" 
-                                                name="locations" 
-                                                defaultValue={hunterConfig?.locations?.join(', ') || ''} 
-                                                placeholder="Ex: São Paulo, Pinheiros, Itaim Bibi"
-                                                className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
-                                            />
-                                            <p className="text-[10px] text-zinc-400 font-medium">O agente monitorará novos anúncios publicados nessas localizações.</p>
+
+                            <CardContent className="p-8 space-y-10">
+                                {/* Section 1: Target & Geography */}
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="h-8 w-1 bg-primary rounded-full" />
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                            <Search className="h-4 w-4 text-primary" />
+                                            Estratégia Geográfica
+                                        </h3>
+                                    </div>
+                                    
+                                    <div className="grid gap-8 sm:grid-cols-2">
+                                        <div className="space-y-3 sm:col-span-2">
+                                            <Label htmlFor="locations" className="text-xs font-black uppercase tracking-widest text-zinc-400">Regiões de Prospecção (Vírgula para múltiplos)</Label>
+                                            <div className="relative group">
+                                                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-300 group-focus-within:text-primary transition-colors" />
+                                                <Input 
+                                                    id="locations" 
+                                                    name="locations" 
+                                                    defaultValue={selectedAgent?.locations?.join(', ') || ''} 
+                                                    key={`locations-${selectedAgentId}`}
+                                                    placeholder="Ex: Pinheiros, Vila Madalena, Itaim Bibi"
+                                                    className="pl-11 h-12 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-bold text-base rounded-xl transition-all focus:ring-primary/20" 
+                                                />
+                                            </div>
                                         </div>
-                                        
-                                        <div className="space-y-3">
-                                            <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Tipos de Imóvel</Label>
-                                            <div className="flex flex-wrap gap-4">
-                                                {['Apartamento', 'Casa', 'Sobrado', 'Terreno'].map(type => (
-                                                    <div key={type} className="flex items-center space-x-2">
+
+                                        <div className="space-y-4">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Tipologias Focais</Label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {['Apartamento', 'Casa', 'Sobrado', 'Terreno', 'Comercial', 'Cobertura'].map(type => (
+                                                    <div key={type} className="flex items-center space-x-3 p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 hover:border-primary/30 transition-all cursor-pointer">
                                                         <Checkbox 
                                                             id={`type-${type}`} 
                                                             name="property_types" 
                                                             value={type}
-                                                            defaultChecked={hunterConfig?.property_types?.includes(type)}
+                                                            defaultChecked={selectedAgent?.property_types?.includes(type)}
+                                                            key={`type-${type}-${selectedAgentId}`}
+                                                            className="h-5 w-5 border-2"
                                                         />
-                                                        <label htmlFor={`type-${type}`} className="text-sm font-bold text-zinc-600 cursor-pointer">{type}</label>
+                                                        <label htmlFor={`type-${type}`} className="text-sm font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer">{type}</label>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        <div className="space-y-3">
-                                            <Label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Opções de Filtro</Label>
-                                            <div className="flex items-center space-x-2 bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                                                <Switch 
-                                                    id="only_direct_owner" 
-                                                    name="only_direct_owner" 
-                                                    defaultChecked={hunterConfig?.only_direct_owner !== false}
-                                                />
-                                                <div className="flex flex-col">
-                                                    <label htmlFor="only_direct_owner" className="text-xs font-black uppercase tracking-tight text-zinc-800">Apenas Proprietário Direto</label>
-                                                    <span className="text-[10px] text-zinc-500">Ignora anúncios de outras imobiliárias.</span>
+                                        <div className="space-y-4">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Configurações Base</Label>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-100">Direto com Dono</span>
+                                                        <span className="text-[10px] text-zinc-500">Filtrar apenas anúncios particulares</span>
+                                                    </div>
+                                                    <Switch 
+                                                        name="only_direct_owner" 
+                                                        defaultChecked={selectedAgent?.only_direct_owner !== false}
+                                                        key={`direct-${selectedAgentId}`}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center justify-between p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-100 text-emerald-500">Notificar via WhatsApp</span>
+                                                        <span className="text-[10px] text-zinc-500">Receba alertas em tempo real no Zap</span>
+                                                    </div>
+                                                    <Switch 
+                                                        name="whatsapp_notifications" 
+                                                        defaultChecked={selectedAgent?.whatsapp_notifications === true}
+                                                        key={`whatsapp-${selectedAgentId}`}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Price & Area */}
-                                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-900 space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-                                        <Zap className="h-4 w-4" />
-                                        Perfil do Imóvel (Faixa de Mercado)
-                                    </h3>
-                                    <div className="grid gap-4 sm:grid-cols-3">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="min_price" className="text-xs font-bold uppercase tracking-wider text-zinc-500">Preço Mínimo (R$)</Label>
-                                            <Input 
-                                                id="min_price" 
-                                                name="min_price" 
-                                                type="number"
-                                                defaultValue={hunterConfig?.min_price || ''} 
-                                                placeholder="0"
-                                                className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="max_price" className="text-xs font-bold uppercase tracking-wider text-zinc-500">Preço Máximo (R$)</Label>
-                                            <Input 
-                                                id="max_price" 
-                                                name="max_price" 
-                                                type="number"
-                                                defaultValue={hunterConfig?.max_price || ''} 
-                                                placeholder="Sem limite"
-                                                className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="min_bedrooms" className="text-xs font-bold uppercase tracking-wider text-zinc-500">Mín. Quartos</Label>
-                                            <Input 
-                                                id="min_bedrooms" 
-                                                name="min_bedrooms" 
-                                                type="number"
-                                                defaultValue={hunterConfig?.min_bedrooms || ''} 
-                                                placeholder="Ex: 2"
-                                                className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-medium" 
-                                            />
-                                        </div>
+                                {/* Section 2: Intel & Frequency */}
+                                <div className="space-y-6 pt-10 border-t border-zinc-100 dark:border-zinc-900">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="h-8 w-1 bg-amber-500 rounded-full" />
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                            <Zap className="h-4 w-4 text-amber-500" />
+                                            Inteligência & Desempenho
+                                        </h3>
                                     </div>
-                                </div>
 
-                                {/* Automation Info */}
-                                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="text-xs font-black uppercase text-primary tracking-tight">Como funciona o Agente?</h4>
-                                        <p className="text-[11px] text-zinc-600 leading-relaxed font-medium">
-                                            O Hunter IA varre os portais diariamente. Cada imóvel encontrado será listado no seu **Radar de Mercado** como um pré-cadastro. Nossa IA irá reescrever a descrição para o seu padrão e extrair o contato do proprietário.
-                                        </p>
+                                    <div className="grid gap-8 sm:grid-cols-3">
+                                        <div className="space-y-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Frequência de Busca</Label>
+                                            <select 
+                                                name="frequency"
+                                                defaultValue={selectedAgent?.frequency || '24h'}
+                                                key={`freq-${selectedAgentId}`}
+                                                className="w-full h-12 px-4 rounded-xl border-2 border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 font-bold text-sm focus:border-primary outline-none transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="1h">🚀 MODO TURBO (A cada 1h)</option>
+                                                <option value="6h">A cada 6 horas</option>
+                                                <option value="12h">A cada 12 horas</option>
+                                                <option value="24h">Uma vez ao dia (Padrão)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Liquidez Mínima (Score)</Label>
+                                            <div className="relative group">
+                                                <BarChart3 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-300" />
+                                                <Input 
+                                                    name="min_liquidity_score" 
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    defaultValue={selectedAgent?.min_liquidity_score || 0} 
+                                                    key={`score-${selectedAgentId}`}
+                                                    placeholder="0-100"
+                                                    className="pl-11 h-12 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 font-black text-lg transition-all" 
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-zinc-400 font-bold">Ignorar imóveis abaixo deste score IA.</p>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Status do Motor</Label>
+                                            <div className="h-12 flex items-center gap-3 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                                                <div className="relative flex h-3 w-3">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                                                </div>
+                                                <span className="text-[10px] font-black tracking-widest text-zinc-600 dark:text-zinc-400 uppercase">Aguardando Ciclo</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 sm:col-span-3">
+                                            <Label className="text-xs font-black uppercase tracking-widest text-zinc-400">Fontes & Portais de Prospecção</Label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {['OLX', 'VivaReal', 'Zap', 'Marketplace', 'Properati'].map(source => (
+                                                    <div key={source} className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800 hover:shadow-md transition-all">
+                                                        <Checkbox 
+                                                            id={`source-${source}`} 
+                                                            name="sources" 
+                                                            value={source.toLowerCase()}
+                                                            defaultChecked={selectedAgent?.sources?.includes(source.toLowerCase()) || (source === 'OLX' && !selectedAgent?.sources)}
+                                                            key={`source-${source}-${selectedAgentId}`}
+                                                        />
+                                                        <label htmlFor={`source-${source}`} className="text-sm font-black text-zinc-800 dark:text-zinc-200 cursor-pointer">{source}</label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 sm:col-span-3">
+                                            <Label htmlFor="negative_keywords" className="text-xs font-black uppercase tracking-widest text-zinc-400">Filtro de Exclusão (Palavras-chave negativas)</Label>
+                                            <textarea 
+                                                id="negative_keywords"
+                                                name="negative_keywords"
+                                                defaultValue={selectedAgent?.negative_keywords?.join(', ') || ''}
+                                                key={`neg-${selectedAgentId}`}
+                                                placeholder="Ex: Leilão, Ocupado, Somente à vista, Direitos, Judicial"
+                                                className="flex min-h-[80px] w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold ring-offset-white placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-zinc-800 dark:bg-zinc-900 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-600 shadow-inner"
+                                            />
+                                            <p className="text-[10px] text-zinc-500 font-medium">O robô ignorará automaticamente anúncios que contenham estes termos no título ou descrição.</p>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 justify-end py-4">
-                                <Button type="submit" disabled={isPending} className="font-bold gap-2">
-                                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                    Salvar Configurações Hunter
+
+                            <CardFooter className="bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 p-8 flex justify-between items-center group">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-tight text-zinc-500 max-w-[300px]">
+                                        Suas configurações são processadas pelo motor neural. Alterações podem levar até 5 minutos para refletir no ciclo de rastreio.
+                                    </p>
+                                </div>
+                                <Button type="submit" size="lg" disabled={isPending} className="font-black gap-2 h-14 px-10 rounded-2xl shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-95 transition-all text-base">
+                                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                                    SALVAR E ATUALIZAR AGENTE
                                 </Button>
                             </CardFooter>
                         </Card>

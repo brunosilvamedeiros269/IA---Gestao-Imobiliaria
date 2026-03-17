@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { hasPermission, UserRole } from '@/utils/rbac'
 
 export async function getTeamMembers() {
     const supabase = await createClient()
@@ -46,7 +47,7 @@ export async function getTeamMembers() {
     return membersWithStats
 }
 
-export async function updateMemberRole(userId: string, newRole: 'admin' | 'broker') {
+export async function updateMemberRole(userId: string, newRole: UserRole) {
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -59,8 +60,19 @@ export async function updateMemberRole(userId: string, newRole: 'admin' | 'broke
         .eq('id', user.id)
         .single()
 
-    if (currentUserProfile?.role !== 'admin') {
-        return { error: 'Apenas administradores podem alterar cargos.' }
+    if (!currentUserProfile) {
+        return { error: 'Perfil de usuário não encontrado.' }
+    }
+
+    if (!hasPermission(currentUserProfile.role as UserRole, 'manage_team')) {
+        return { error: 'Você não tem permissão para gerenciar a equipe.' }
+    }
+
+    // Admins can promte to anything. Managers can promote to manager/broker but not admin?
+    // Let's keep it simple: Only admins can promote/demote to ADMIN. 
+    // Managers can toggle between Manager/Broker.
+    if (newRole === 'admin' && currentUserProfile?.role !== 'admin') {
+        return { error: 'Apenas administradores podem promover usuários para Administrador.' }
     }
 
     const { error } = await supabase
@@ -77,7 +89,7 @@ export async function updateMemberRole(userId: string, newRole: 'admin' | 'broke
     return { success: true }
 }
 
-export async function inviteTeamMember(email: string, role: 'admin' | 'broker') {
+export async function inviteTeamMember(email: string, role: UserRole) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
@@ -91,8 +103,16 @@ export async function inviteTeamMember(email: string, role: 'admin' | 'broker') 
         .eq('id', currentUser.id)
         .single()
 
-    if (currentUserProfile?.role !== 'admin') {
-        return { error: 'Apenas administradores podem convidar membros.' }
+    if (!currentUserProfile) {
+        return { error: 'Perfil de usuário não encontrado.' }
+    }
+
+    if (!hasPermission(currentUserProfile.role as UserRole, 'manage_team')) {
+        return { error: 'Você não tem permissão para convidar membros.' }
+    }
+
+    if (role === 'admin' && currentUserProfile?.role !== 'admin') {
+        return { error: 'Apenas administradores podem convidar outros administradores.' }
     }
 
     // 2. Invite user via Supabase Auth Admin API

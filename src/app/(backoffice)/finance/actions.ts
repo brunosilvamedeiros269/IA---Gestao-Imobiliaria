@@ -3,158 +3,124 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function createManualTransaction(formData: FormData) {
+export async function closeDeal(formData: FormData) {
     const supabase = await createClient()
 
+    const leadId = formData.get('lead_id') as string
+    const propertyId = formData.get('property_id') as string
+    const totalValue = parseFloat(formData.get('total_value') as string)
+    const type = formData.get('type') as 'sale' | 'rent'
+
+    if (!leadId || !propertyId || isNaN(totalValue)) {
+        return { error: 'Dados incompletos para o fechamento.' }
+    }
+
+    // 1. Get Session & Profile
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
     const { data: profile } = await supabase
         .from('users_profile')
-        .select('agency_id')
+        .select('agency_id, role')
         .eq('id', user.id)
         .single()
 
-    if (!profile?.agency_id) throw new Error('Agência não encontrada')
+    if (!profile?.agency_id) return { error: 'Agência não encontrada.' }
 
-    const propertyId = formData.get('property_id') as string
-    const leadId = formData.get('lead_id') as string || null
-    const totalValue = Number(formData.get('total_value')) || 0
-    const commissionRate = Number(formData.get('commission_rate')) || 6
-    const type = formData.get('type') as 'sale' | 'rent'
-    const closingDate = formData.get('closing_date') as string || new Date().toISOString()
-    const status = formData.get('status') as 'pending' | 'paid' | 'cancelled' || 'pending'
-
-    if (!propertyId || !totalValue) {
-        return { error: 'Imóvel e valor total são obrigatórios.' }
-    }
-
-    const commissionTotal = (totalValue * commissionRate) / 100
-
-    // Get agency split config
+    // 2. Get Agency Configs for Split
     const { data: agency } = await supabase
         .from('agencies')
-        .select('split_agency, split_captador, split_vendedor')
+        .select('default_commission_rate, split_agency, split_captador, split_vendedor')
         .eq('id', profile.agency_id)
         .single()
 
-    // Create Transaction
-    const { data: tx, error: txError } = await supabase
+    // 3. Get Lead and Property details to identifying brokers
+    const { data: lead } = await supabase
+        .from('leads')
+        .select('user_id')
+        .eq('id', leadId)
+        .single()
+
+    const { data: property } = await supabase
+        .from('properties')
+        .select('created_by, commission_rate')
+        .eq('id', propertyId)
+        .single()
+
+    if (!lead || !property) return { error: 'Lead ou Imóvel não encontrado.' }
+
+    // 4. Calculations
+    const commissionRate = property.commission_rate || agency?.default_commission_rate || 6.0
+    const commissionTotal = (totalValue * commissionRate) / 100
+
+    const splitAgencyPerc = agency?.split_agency || 50
+    const splitCaptadorPerc = agency?.split_captador || 25
+    const splitVendedorPerc = agency?.split_vendedor || 25
+
+    const amountAgency = (commissionTotal * splitAgencyPerc) / 100
+    const amountCaptador = (commissionTotal * splitCaptadorPerc) / 100
+    const amountVendedor = (commissionTotal * splitVendedorPerc) / 100
+
+    // 5. Create Transaction (Database Transaction would be ideal, but here we do step-by-step for simplicity)
+    const { data: transaction, error: txError } = await supabase
         .from('transactions')
         .insert({
             agency_id: profile.agency_id,
             property_id: propertyId,
             lead_id: leadId,
+            broker_vendedor_id: lead.user_id,
+            broker_captador_id: property.created_by,
             total_value: totalValue,
             commission_total: commissionTotal,
-            type,
-            status,
-            closing_date: closingDate
+            type: type,
+            status: 'pending'
         })
         .select()
         .single()
 
-    if (txError) {
-        console.error('Error creating manual transaction:', txError)
-        return { error: 'Falha ao salvar transação: ' + txError.message }
-    }
+    if (txError) return { error: 'Erro ao registrar transação: ' + txError.message }
 
-    // Create Splits
-    const splitAgencyPerc = agency?.split_agency || 50
-    const splitCaptadorPerc = agency?.split_captador || 25
-    const splitVendedorPerc = agency?.split_vendedor || 25
-
-    const splits: any[] = [
+    // 6. Create Splits
+    const splits = [
         {
-            transaction_id: tx.id,
+            transaction_id: transaction.id,
             role: 'agency',
             percentage: splitAgencyPerc,
-            amount: (commissionTotal * splitAgencyPerc) / 100,
-            status: status === 'paid' ? 'paid' : 'pending'
+            amount: amountAgency,
+            status: 'pending'
+        },
+        {
+            transaction_id: transaction.id,
+            user_profile_id: property.created_by,
+            role: 'captador',
+            percentage: splitCaptadorPerc,
+            amount: amountCaptador,
+            status: 'pending'
+        },
+        {
+            transaction_id: transaction.id,
+            user_profile_id: lead.user_id,
+            role: 'vendedor',
+            percentage: splitVendedorPerc,
+            amount: amountVendedor,
+            status: 'pending'
         }
     ]
 
-    // If we have a captador/vendedor (based on property/lead or manual entry), we should add them
-    // For manual transaction, let's keep it simple for now or fetch property owner
-    const { data: property } = await supabase.from('properties').select('broker_id').eq('id', propertyId).single()
-    if (property?.broker_id) {
-        splits.push({
-            transaction_id: tx.id,
-            user_profile_id: property.broker_id,
-            role: 'captador' as const,
-            percentage: splitCaptadorPerc,
-            amount: (commissionTotal * splitCaptadorPerc) / 100,
-            status: status === 'paid' ? 'paid' : 'pending'
-        })
-    }
+    const { error: splitError } = await supabase
+        .from('commissions_split')
+        .insert(splits)
 
-    if (leadId) {
-        const { data: lead } = await supabase.from('leads').select('id').eq('id', leadId).single()
-        // If lead was handled by a broker, we'd add him as vendedor. 
-        // For now, let's just insert what we have.
-    }
+    if (splitError) return { error: 'Erro ao registrar splits: ' + splitError.message }
 
-    await supabase.from('commissions_split').insert(splits)
-
-    // Update lead status if leadId is present
-    if (leadId) {
-        await supabase
-            .from('leads')
-            .update({ 
-                funnel_status: 'won',
-                current_step_id: 'won' // assumindo que 'won' é um ID de etapa válido ou apenas marcando status
-            })
-            .eq('id', leadId)
-    }
-
-    revalidatePath('/finance')
-    revalidatePath('/crm')
-    return { success: true }
-}
-
-export const closeDeal = createManualTransaction
-
-export async function getPropertiesForSelect() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
-    const { data: profile } = await supabase
-        .from('users_profile')
-        .select('agency_id')
-        .eq('id', user.id)
-        .single()
-
-    if (!profile?.agency_id) return []
-
-    const { data } = await supabase
-        .from('properties')
-        .select('id, title')
-        .eq('agency_id', profile.agency_id)
-        .eq('status', 'active')
-        .order('title')
-
-    return data || []
-}
-
-export async function getLeadsForSelect() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
-    const { data: profile } = await supabase
-        .from('users_profile')
-        .select('agency_id')
-        .eq('id', user.id)
-        .single()
-
-    if (!profile?.agency_id) return []
-
-    const { data } = await supabase
+    // 7. Update Lead Status
+    await supabase
         .from('leads')
-        .select('id, name')
-        .eq('agency_id', profile.agency_id)
-        .order('name')
+        .update({ status: 'won' })
+        .eq('id', leadId)
 
-    return data || []
+    revalidatePath('/crm')
+    revalidatePath('/finance')
+    
+    return { success: true, transactionId: transaction.id }
 }

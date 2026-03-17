@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { inviteTeamMember } from './actions'
+import { UserRole } from '@/utils/rbac'
 
 export function InviteMemberModal() {
     const [isOpen, setIsOpen] = useState(false)
@@ -34,7 +35,7 @@ export function InviteMemberModal() {
 
         const formData = new FormData(e.currentTarget)
         const email = formData.get('email') as string
-        const role = formData.get('role') as 'admin' | 'broker'
+        const role = formData.get('role') as UserRole
 
         try {
             const res = await inviteTeamMember(email, role)
@@ -98,6 +99,7 @@ export function InviteMemberModal() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="broker">Corretor (Padrão)</SelectItem>
+                                <SelectItem value="manager">Gerente</SelectItem>
                                 <SelectItem value="admin">Administrador</SelectItem>
                             </SelectContent>
                         </Select>

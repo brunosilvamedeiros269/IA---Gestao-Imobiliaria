@@ -3,7 +3,11 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/utils/supabase/database.types'
 
-type PropertyRow = Database['public']['Tables']['properties']['Row']
+type PropertyRow = Database['public']['Tables']['properties']['Row'] & {
+    users_profile: {
+        full_name: string
+    } | null
+}
 
 function PropertyCard({ property }: { property: PropertyRow }) {
     const formatCurrency = (value: number) => {
@@ -34,11 +38,19 @@ function PropertyCard({ property }: { property: PropertyRow }) {
                 </div>
             </div>
             <div className="p-5">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-1">
                     <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-50 line-clamp-1">{property.title}</h3>
                 </div>
 
-                <p className="text-xl font-bold text-primary mb-4">{formatCurrency(property.price)}</p>
+                <div className="flex items-center justify-between mb-3">
+                    <p className="text-xl font-bold text-primary">{formatCurrency(property.price)}</p>
+                    {property.users_profile && (
+                        <div className="flex items-center gap-1 text-[10px] text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                            <span className="font-semibold opacity-60 uppercase">Broker:</span>
+                            <span className="truncate max-w-[60px]">{property.users_profile.full_name.split(' ')[0]}</span>
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex items-center text-sm text-zinc-500 dark:text-zinc-400 mb-4 whitespace-nowrap overflow-hidden text-ellipsis">
                     <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
@@ -73,7 +85,12 @@ export default async function InventoryPage() {
 
     const { data: properties, error } = await supabase
         .from('properties')
-        .select('*')
+        .select(`
+            *,
+            users_profile (
+                full_name
+            )
+        `)
         .order('created_at', { ascending: false })
 
     if (error) {

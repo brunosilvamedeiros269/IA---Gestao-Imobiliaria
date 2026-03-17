@@ -3,6 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { Database } from '@/utils/supabase/database.types'
+import { calculateLeadScore } from '@/utils/scoring'
+import { hasPermission, UserRole } from '@/utils/rbac'
 
 export type LeadWithProperty = Database['public']['Tables']['leads']['Row'] & {
     properties: {
@@ -13,6 +15,11 @@ export type LeadWithProperty = Database['public']['Tables']['leads']['Row'] & {
         address_summary: string | null
         price: number
     } | null
+    users_profile: {
+        full_name: string
+        avatar_url: string | null
+    } | null
+    lead_score: number | null
 }
 
 export type LeadNoteWithBroker = Database['public']['Tables']['lead_notes']['Row'] & {
@@ -49,7 +56,12 @@ export async function getLeads(): Promise<LeadWithProperty[]> {
                 photos,
                 property_type,
                 listing_type
-            )
+            ),
+            users_profile (
+                full_name,
+                avatar_url
+            ),
+            lead_score
         `)
         .eq('agency_id', profile.agency_id)
         .order('created_at', { ascending: false })
@@ -132,6 +144,15 @@ export async function createLead(formData: FormData) {
     const budget_max = Number(formData.get('budget_max')?.toString().replace(/\D/g, '')) || 0
     const urgency_score = Number(formData.get('urgency_score')) || 1
 
+    const lead_score = calculateLeadScore({
+        email,
+        phone,
+        budget_min: budget_min / 100,
+        budget_max: budget_max / 100,
+        source,
+        urgency_score
+    })
+
     if (!name) return { error: 'O Nome do Cliente é obrigatório.' }
 
     const { error } = await supabase
@@ -144,9 +165,11 @@ export async function createLead(formData: FormData) {
             property_id: property_id && property_id !== 'none' ? property_id : null,
             funnel_status: status,
             source,
-            budget_min: budget_min / 100, // Convertendo centavos para decimal se vier formatado, ou ajustando lógica
+            budget_min: budget_min / 100, 
             budget_max: budget_max / 100,
-            urgency_score
+            urgency_score,
+            broker_id: user.id, // Automáticamente atribui ao criador
+            lead_score
         })
 
     if (error) {

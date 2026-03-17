@@ -112,7 +112,7 @@ export async function updateAgency(formData: FormData) {
             instagram_url: formData.get('instagram_url') as string,
             facebook_url: formData.get('facebook_url') as string,
             linkedin_url: formData.get('linkedin_url') as string,
-            portal_style: formData.get('portal_style') as string,
+            openai_api_key: formData.get('openai_api_key') as string,
         })
         .eq('id', profile.agency_id)
 

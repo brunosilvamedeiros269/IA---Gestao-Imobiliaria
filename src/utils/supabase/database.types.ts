@@ -110,6 +110,7 @@ export type Database = {
           property_id: string | null
           source: string | null
           urgency_score: number | null
+          broker_id: string | null
         }
         Insert: {
           agency_id: string
@@ -124,6 +125,7 @@ export type Database = {
           property_id?: string | null
           source?: string | null
           urgency_score?: number | null
+          broker_id?: string | null
         }
         Update: {
           agency_id?: string
@@ -138,6 +140,7 @@ export type Database = {
           property_id?: string | null
           source?: string | null
           urgency_score?: number | null
+          broker_id?: string | null
         }
         Relationships: [
           {
@@ -338,7 +341,7 @@ export type Database = {
       funnel_status: "new" | "in_progress" | "visit" | "won" | "lost"
       listing_type: "sale" | "rent"
       property_status: "active" | "inactive" | "sold" | "rented" | "suspended"
-      user_role: "admin" | "broker"
+      user_role: "admin" | "manager" | "broker"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -469,7 +472,7 @@ export const Constants = {
       funnel_status: ["new", "in_progress", "visit", "won", "lost"],
       listing_type: ["sale", "rent"],
       property_status: ["active", "inactive", "sold", "rented", "suspended"],
-      user_role: ["admin", "broker"],
+      user_role: ["admin", "manager", "broker"],
     },
   },
 } as const

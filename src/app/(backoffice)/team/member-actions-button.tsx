@@ -14,16 +14,18 @@ import { MoreHorizontal, Shield, User, Loader2 } from 'lucide-react'
 import { updateMemberRole } from './actions'
 import { toast } from 'sonner'
 
+import { UserRole } from '@/utils/rbac'
+
 interface MemberActionsButtonProps {
     memberId: string
-    currentRole: 'admin' | 'broker'
+    currentRole: UserRole
     isCurrentUser: boolean
 }
 
 export function MemberActionsButton({ memberId, currentRole, isCurrentUser }: MemberActionsButtonProps) {
     const [isPending, startTransition] = useTransition()
 
-    const handleRoleChange = (newRole: 'admin' | 'broker') => {
+    const handleRoleChange = (newRole: UserRole) => {
         if (newRole === currentRole) return
 
         startTransition(async () => {
@@ -31,7 +33,12 @@ export function MemberActionsButton({ memberId, currentRole, isCurrentUser }: Me
             if (res.error) {
                 toast.error(res.error)
             } else {
-                toast.success(`Cargo atualizado para ${newRole === 'admin' ? 'Administrador' : 'Corretor'}`)
+                const roleLabels: Record<UserRole, string> = {
+                    admin: 'Administrador',
+                    manager: 'Gerente',
+                    broker: 'Corretor'
+                }
+                toast.success(`Cargo atualizado para ${roleLabels[newRole]}`)
             }
         })
     }
@@ -54,8 +61,16 @@ export function MemberActionsButton({ memberId, currentRole, isCurrentUser }: Me
                     disabled={currentRole === 'admin'}
                     className="gap-2"
                 >
-                    <Shield className="h-4 w-4 text-primary" />
+                    <Shield className="h-4 w-4 text-emerald-500" />
                     Tornar Administrador
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                    onClick={() => handleRoleChange('manager')}
+                    disabled={currentRole === 'manager'}
+                    className="gap-2"
+                >
+                    <Shield className="h-4 w-4 text-primary" />
+                    Tornar Gerente
                 </DropdownMenuItem>
                 <DropdownMenuItem
                     onClick={() => handleRoleChange('broker')}

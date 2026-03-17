@@ -21,10 +21,14 @@ import {
     XCircle,
     Brain,
     Loader2,
-    RefreshCw
+    RefreshCw,
+    Flame,
+    Info,
+    AlertTriangle,
+    Zap
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { claimOpportunity, discardOpportunity, runHunterIA } from './hunter-actions'
+import { claimOpportunity, discardOpportunity, simulateHunt } from './hunter-actions'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -51,7 +55,7 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
     const handleSync = async () => {
         setIsSyncing(true)
         try {
-            const res = await runHunterIA() as any
+            const res = await simulateHunt() as any
             if (res.error) toast.error(res.error)
             else toast.success(`Radar sincronizado! ${res.count || 0} novas oportunidades encontradas.`)
         } finally {
@@ -68,11 +72,10 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
                 <Button 
                     onClick={handleSync} 
                     disabled={isSyncing} 
-                    variant="outline"
-                    className="font-bold gap-2 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10"
+                    className="font-black gap-2 h-12 px-8 rounded-2xl shadow-lg shadow-primary/20 bg-primary hover:shadow-primary/30 transition-all group"
                 >
-                    {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    Sincronizar Radar Agora
+                    {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white animate-pulse" />}
+                    EXECUTAR VARREDURA MANUAL
                 </Button>
             </div>
 
@@ -138,14 +141,21 @@ export function HunterList({ opportunities: initialOpportunities }: { opportunit
 function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
     const isClaimed = opportunity.status === 'claimed'
     const isConverted = opportunity.status === 'converted'
+    // Tratamento defensivo para fotos (pode vir como array ou string serializada)
+    const photos = Array.isArray(opportunity.photos) 
+        ? opportunity.photos 
+        : typeof opportunity.photos === 'string' 
+            ? [opportunity.photos] 
+            : []
+    const firstPhoto = photos[0]
 
     return (
         <Card className="flex flex-col h-full border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
             {/* Header com Imagem ou Placeholder */}
             <div className="relative aspect-[16/10] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
-                {opportunity.photos?.[0] ? (
+                {firstPhoto ? (
                     <img 
-                        src={opportunity.photos[0]} 
+                        src={firstPhoto} 
                         alt={opportunity.title} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                         onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/800x500?text=Imagens+Indispon%C3%ADvel')}
@@ -157,24 +167,51 @@ function OpportunityCard({ opportunity, onClaim, onDiscard, isPending }: any) {
                     </div>
                 )}
                 
-                <div className="absolute top-3 left-3 flex gap-2">
-                    <Badge className="bg-white/90 dark:bg-zinc-950/90 text-zinc-900 border-none px-2 py-1 font-black text-[10px] uppercase">
-                        {opportunity.portal_name}
-                    </Badge>
+                {/* Score Gauge Overlay */}
+                <div className="absolute top-3 right-3 z-10">
+                    <div className={`flex flex-col items-center justify-center h-14 w-14 rounded-2xl backdrop-blur-md border border-white/20 shadow-xl ${
+                        opportunity.opportunity_score >= 80 ? 'bg-emerald-500/80' : 
+                        opportunity.opportunity_score >= 50 ? 'bg-amber-500/80' : 'bg-red-500/80'
+                    }`}>
+                        <span className="text-[10px] font-black text-white/70 leading-none">SCORE</span>
+                        <span className="text-xl font-black text-white leading-none tracking-tighter">{opportunity.opportunity_score || 0}</span>
+                    </div>
                 </div>
 
-                <div className="absolute bottom-3 right-3">
-                    <Badge variant="secondary" className="backdrop-blur-md bg-black/50 text-white border-none font-bold">
+                <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                    <Badge className="bg-white/90 dark:bg-zinc-950/90 text-zinc-900 border-none px-2 py-1 font-black text-[10px] uppercase w-fit">
+                        {opportunity.portal_name}
+                    </Badge>
+                    {opportunity.opportunity_score >= 90 && (
+                        <Badge className="bg-amber-400 text-black border-none px-2 py-1 font-black text-[10px] uppercase animate-bounce w-fit shadow-lg shadow-amber-400/20">
+                            <Flame className="h-3 w-3 mr-1 fill-black" />
+                            GOLDEN DEAL
+                        </Badge>
+                    )}
+                </div>
+
+                <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                    <Badge variant="secondary" className="backdrop-blur-md bg-black/50 text-white border-none font-bold text-[10px] px-3 py-1">
                         {opportunity.property_type}
                     </Badge>
+                    {photos.length > 1 && (
+                        <div className="bg-black/40 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-lg border border-white/10 uppercase tracking-widest">
+                            +{photos.length - 1} fotos
+                        </div>
+                    )}
                 </div>
             </div>
 
             <CardHeader className="p-4 space-y-2">
                 <div className="flex justify-between items-start gap-2">
-                    <CardTitle className="text-base font-bold line-clamp-2 leading-tight">
+                    <CardTitle className="text-base font-bold line-clamp-2 leading-tight flex-1">
                         {opportunity.title}
                     </CardTitle>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-primary shrink-0 -mt-1" asChild>
+                        <a href={opportunity.external_url} target="_blank" title="Ver publicação original">
+                            <ExternalLink className="h-4 w-4" />
+                        </a>
+                    </Button>
                 </div>
                 <div className="flex items-center text-xs text-zinc-500 gap-1 font-medium">
                     <MapPin className="h-3 w-3" />
